@@ -1002,6 +1002,13 @@ boolean G_Responder (event_t* ev)
 } 
  
  
+// [crispy] re-read game parameters from command line
+static void G_ReadGameParms (void)
+{
+    respawnparm = M_CheckParm ("-respawn");
+    fastparm = M_CheckParm ("-fast");
+    nomonsters = M_CheckParm ("-nomonsters");
+}
  
 //
 // G_Ticker
@@ -1027,9 +1034,13 @@ void G_Ticker (void)
 	    G_DoLoadLevel (); 
 	    break; 
 	  case ga_newgame: 
+	    // [crispy] re-read game parameters from command line
+	    G_ReadGameParms();
 	    G_DoNewGame (); 
 	    break; 
 	  case ga_loadgame: 
+	    // [crispy] re-read game parameters from command line
+	    G_ReadGameParms();
 	    G_DoLoadGame (); 
 	    break; 
 	  case ga_savegame: 
@@ -1689,11 +1700,11 @@ void G_DoCompleted (void)
     // Set par time. Doom episode 4 doesn't have a par time, so this
     // overflows into the cpars array. It's necessary to emulate this
     // for statcheck regression testing.
-    if (gamemap == 33 || (crispy_havee1m10 && gameepisode == 1 && gamemap == 10) || gamemission == pack_master)
+    if (gamemap == 33 || (crispy_havee1m10 && gameepisode == 1 && gamemap == 10))
 	// [crispy] par time for inofficial maps sucks
 	wminfo.partime = INT_MAX;
     else
-    if (gamemission == pack_nerve)
+    if (gamemission == pack_nerve && singleplayer)
 	wminfo.partime = TICRATE*npars[gamemap-1];
     else
     if (gamemode == commercial)
@@ -2054,9 +2065,11 @@ void G_DoNewGame (void)
     deathmatch = false;
     playeringame[1] = playeringame[2] = playeringame[3] = 0;
     // [crispy] do not reset -respawn, -fast and -nomonsters parameters
-    respawnparm = M_CheckParm ("-respawn");
-    fastparm = M_CheckParm ("-fast");
-    nomonsters = M_CheckParm ("-nomonsters");
+    /*
+    respawnparm = false;
+    fastparm = false;
+    nomonsters = false;
+    */
     consoleplayer = 0;
     G_InitNew (d_skill, d_episode, d_map); 
     gameaction = ga_nothing; 
@@ -2071,6 +2084,8 @@ G_InitNew
 {
     char *skytexturename;
     int             i;
+    // [crispy] make sure "fast" parameters are really only applied once
+    static boolean fast_applied;
 
     if (paused)
     {
@@ -2155,25 +2170,28 @@ G_InitNew
     else
 	respawnmonsters = false;
 
-    if (fastparm || (skill == sk_nightmare && gameskill != sk_nightmare) )
+    // [crispy] make sure "fast" parameters are really only applied once
+    if ((fastparm || skill == sk_nightmare) && !fast_applied)
     {
 	for (i=S_SARG_RUN1 ; i<=S_SARG_PAIN2 ; i++)
 	    // [crispy] Fix infinite loop caused by Demon speed bug
-	    if (states[i].tics != 1)
+	    if (states[i].tics > 1)
 	    {
 	    states[i].tics >>= 1;
 	    }
 	mobjinfo[MT_BRUISERSHOT].speed = 20*FRACUNIT;
 	mobjinfo[MT_HEADSHOT].speed = 20*FRACUNIT;
 	mobjinfo[MT_TROOPSHOT].speed = 20*FRACUNIT;
+	fast_applied = true;
     }
-    else if (skill != sk_nightmare && gameskill == sk_nightmare)
+    else if (!fastparm && skill != sk_nightmare && fast_applied)
     {
 	for (i=S_SARG_RUN1 ; i<=S_SARG_PAIN2 ; i++)
 	    states[i].tics <<= 1;
 	mobjinfo[MT_BRUISERSHOT].speed = 15*FRACUNIT;
 	mobjinfo[MT_HEADSHOT].speed = 10*FRACUNIT;
 	mobjinfo[MT_TROOPSHOT].speed = 10*FRACUNIT;
+	fast_applied = false;
     }
 
     // force players to be initialized upon first level load

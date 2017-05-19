@@ -62,6 +62,16 @@ typedef struct
 laserspot_t laserspot_m = {0, 0, 0};
 laserspot_t *laserspot = &laserspot_m;
 
+// [crispy] extendable, but the last char element must be ' ',
+// keep in sync with multiitem_t multiitem_crosshairtype[] in m_menu.c
+laserpatch_t laserpatch_m[] = {
+	{'+', 0},
+	{'^', 0},
+	{'.', 0},
+	{' ', 0},
+};
+laserpatch_t *laserpatch = laserpatch_m;
+
 //
 // Sprite rotation 0 is facing the viewer,
 //  rotation 1 is one angle turn CLOCKWISE around the axis.
@@ -796,15 +806,14 @@ static void R_DrawLSprite (void)
 
     extern void	P_LineLaser (mobj_t* t1, angle_t angle, fixed_t distance, fixed_t slope);
 
-    if (viewplayer->readyweapon == wp_fist ||
-        viewplayer->readyweapon == wp_chainsaw ||
-        viewplayer->playerstate > PST_LIVE)
+    if (weaponinfo[viewplayer->readyweapon].ammo == am_noammo ||
+        viewplayer->playerstate != PST_LIVE)
 	return;
 
-    if (!lump)
+    if (lump != laserpatch[crispy_crosshairtype].l)
     {
-	lump = W_GetNumForName(CRISPY_CROSSHAIR);
-	patch = W_CacheLumpNum(lump, PU_CACHE);
+	lump = laserpatch[crispy_crosshairtype].l;
+	patch = W_CacheLumpNum(lump, PU_STATIC);
     }
 
     crispy_crosshair |= CROSSHAIR_INTERCEPT; // [crispy] intercepts overflow guard
@@ -890,6 +899,31 @@ void R_AddSprites (sector_t* sec)
 	R_ProjectSprite (thing);
 }
 
+// [crispy] apply bobbing (or centering) to the player's weapon sprite
+static inline void R_ApplyWeaponBob (fixed_t *sx, boolean bobx, fixed_t *sy, boolean boby)
+{
+	const angle_t angle = (128 * leveltime) & FINEMASK;
+
+	if (sx)
+	{
+		*sx = FRACUNIT;
+
+		if (bobx)
+		{
+			 *sx += FixedMul(viewplayer->bob, finecosine[angle]);
+		}
+	}
+
+	if (sy)
+	{
+		*sy = 32 * FRACUNIT; // [crispy] WEAPONTOP
+
+		if (boby)
+		{
+			*sy += FixedMul(viewplayer->bob, finesine[angle & (FINEANGLES / 2 - 1)]);
+		}
+	}
+}
 
 //
 // R_DrawPSprite
@@ -905,7 +939,8 @@ void R_DrawPSprite (pspdef_t* psp, psprnum_t psprnum) // [crispy] differentiate 
     boolean		flip;
     vissprite_t*	vis;
     vissprite_t		avis;
-    fixed_t		psp_sx;
+    fixed_t		psp_sx = psp->sx, psp_sy = psp->sy;
+    const int state = viewplayer->psprites[ps_weapon].state - states;
     
     // decide which patch to use
 #ifdef RANGECHECK
@@ -928,9 +963,27 @@ void R_DrawPSprite (pspdef_t* psp, psprnum_t psprnum) // [crispy] differentiate 
 
     lump = sprframe->lump[0];
     flip = (boolean)sprframe->flip[0];
-    // [crispy] center the weapon sprite horizontally
-    psp_sx = (crispy_centerweapon && viewplayer->attackdown && !psp->state->misc1) ? FRACUNIT : psp->sx;
     
+    // [crispy] smoothen Chainsaw idle animation
+    if (state == S_SAW || state == S_SAWB)
+    {
+        R_ApplyWeaponBob(&psp_sx, true, &psp_sy, true);
+    }
+    else
+    // [crispy] center the weapon sprite horizontally and vertically
+    if (crispy_centerweapon && viewplayer->attackdown && !psp->state->misc1)
+    {
+        const weaponinfo_t *const winfo = &weaponinfo[viewplayer->readyweapon];
+
+        R_ApplyWeaponBob(&psp_sx, crispy_centerweapon == CENTERWEAPON_BOB, NULL, false);
+
+        // [crispy] don't center vertically during lowering and raising states
+        if (crispy_centerweapon >= CENTERWEAPON_HORVER &&
+            state != winfo->downstate && state != winfo->upstate)
+        {
+            R_ApplyWeaponBob(NULL, false, &psp_sy, crispy_centerweapon == CENTERWEAPON_BOB);
+        }
+    }
     // calculate edges of the shape
     tx = psp_sx-(ORIGWIDTH/2)*FRACUNIT;
 	
@@ -953,7 +1006,7 @@ void R_DrawPSprite (pspdef_t* psp, psprnum_t psprnum) // [crispy] differentiate 
     vis->translation = NULL; // [crispy] no color translation
     vis->mobjflags = 0;
     // [crispy] weapons drawn 1 pixel too high when player is idle
-    vis->texturemid = (BASEYCENTER<<FRACBITS)/*+FRACUNIT/2*/-(psp->sy-spritetopoffset[lump]);
+    vis->texturemid = (BASEYCENTER<<FRACBITS)+FRACUNIT/4-(psp_sy-spritetopoffset[lump]);
     vis->x1 = x1 < 0 ? 0 : x1;
     vis->x2 = x2 >= viewwidth ? viewwidth-1 : x2;	
     vis->scale = pspritescale<<(detailshift && !hires);

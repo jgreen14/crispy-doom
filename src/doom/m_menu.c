@@ -245,6 +245,7 @@ static void M_CrispyToggleColoredblood(int choice);
 static void M_CrispyToggleColoredblood2(int choice);
 static void M_CrispyToggleColoredhud(int choice);
 static void M_CrispyToggleCrosshair(int choice);
+static void M_CrispyToggleCrosshairtype(int choice);
 static void M_CrispyToggleExtsaveg(int choice);
 static void M_CrispyToggleFlipcorpses(int choice);
 static void M_CrispyToggleFreeaim(int choice);
@@ -517,6 +518,7 @@ enum
 {
     crispness_sep_tactical,
     crispness_crosshair,
+    crispness_crosshairtype,
     crispness_freelook,
     crispness_neghealth,
     crispness_centerweapon,
@@ -534,6 +536,7 @@ static menuitem_t Crispness2Menu[]=
 {
     {-1,"",0,'\0'},
     {1,"",	M_CrispyToggleCrosshair,'d'},
+    {1,"",	M_CrispyToggleCrosshairtype,'c'},
     {1,"",	M_CrispyToggleFreelook,'a'},
     {1,"",	M_CrispyToggleNeghealth,'n'},
     {1,"",	M_CrispyToggleCenterweapon,'c'},
@@ -764,7 +767,7 @@ void M_DrawLoad(void)
 {
     int             i;
 	
-    V_DrawPatchDirect(LoadDef_x, LoadDef_y,
+    V_DrawPatchShadow2(LoadDef_x, LoadDef_y,
                       W_CacheLumpName(DEH_String("M_LOADG"), PU_CACHE));
 
     for (i = 0;i < load_end; i++)
@@ -855,7 +858,7 @@ void M_DrawSave(void)
 {
     int             i;
 	
-    V_DrawPatchDirect(SaveDef_x, SaveDef_y, W_CacheLumpName(DEH_String("M_SAVEG"), PU_CACHE));
+    V_DrawPatchShadow2(SaveDef_x, SaveDef_y, W_CacheLumpName(DEH_String("M_SAVEG"), PU_CACHE));
     for (i = 0;i < load_end; i++)
     {
 	M_DrawSaveLoadBorder(LoadDef.x,LoadDef.y+LINEHEIGHT*i);
@@ -935,6 +938,8 @@ void M_QuickSaveResponse(int key)
 
 void M_QuickSave(void)
 {
+    char *savegamestring;
+
     if (!usergame)
     {
 	S_StartSound(NULL,sfx_oof);
@@ -952,7 +957,13 @@ void M_QuickSave(void)
 	quickSaveSlot = -2;	// means to pick a slot now
 	return;
     }
-    DEH_snprintf(tempstring, 80, QSPROMPT, savegamestrings[quickSaveSlot]);
+    // [crispy] print savegame name in golden letters
+    savegamestring = M_StringJoin(crstr[CR_GOLD],
+                                  savegamestrings[quickSaveSlot],
+                                  crstr[CR_NONE],
+                                  NULL);
+    DEH_snprintf(tempstring, 80, QSPROMPT, savegamestring);
+    free(savegamestring);
     M_StartMessage(tempstring,M_QuickSaveResponse,true);
 }
 
@@ -973,6 +984,8 @@ void M_QuickLoadResponse(int key)
 
 void M_QuickLoad(void)
 {
+    char *savegamestring;
+
     if (netgame)
     {
 	M_StartMessage(DEH_String(QLOADNET),NULL,false);
@@ -988,7 +1001,13 @@ void M_QuickLoad(void)
 	quickSaveSlot = -2;
 	return;
     }
-    DEH_snprintf(tempstring, 80, QLPROMPT, savegamestrings[quickSaveSlot]);
+    // [crispy] print savegame name in golden letters
+    savegamestring = M_StringJoin(crstr[CR_GOLD],
+                                  savegamestrings[quickSaveSlot],
+                                  crstr[CR_NONE],
+                                  NULL);
+    DEH_snprintf(tempstring, 80, QLPROMPT, savegamestring);
+    free(savegamestring);
     M_StartMessage(tempstring,M_QuickLoadResponse,true);
 }
 
@@ -1034,7 +1053,7 @@ void M_DrawReadThisCommercial(void)
 //
 void M_DrawSound(void)
 {
-    V_DrawPatchDirect (60, 38, W_CacheLumpName(DEH_String("M_SVOL"), PU_CACHE));
+    V_DrawPatchShadow2 (60, 38, W_CacheLumpName(DEH_String("M_SVOL"), PU_CACHE));
 
     M_DrawThermo(SoundDef.x,SoundDef.y+LINEHEIGHT*(sfx_vol+1),
 		 16,sfxVolume);
@@ -1102,8 +1121,8 @@ void M_DrawMainMenu(void)
 //
 void M_DrawNewGame(void)
 {
-    V_DrawPatchDirect(96, 14, W_CacheLumpName(DEH_String("M_NEWG"), PU_CACHE));
-    V_DrawPatchDirect(54, 38, W_CacheLumpName(DEH_String("M_SKILL"), PU_CACHE));
+    V_DrawPatchShadow2(96, 14, W_CacheLumpName(DEH_String("M_NEWG"), PU_CACHE));
+    V_DrawPatchShadow2(54, 38, W_CacheLumpName(DEH_String("M_SKILL"), PU_CACHE));
 }
 
 void M_NewGame(int choice)
@@ -1139,7 +1158,7 @@ int     epi;
 
 void M_DrawEpisode(void)
 {
-    V_DrawPatchDirect(54, 38, W_CacheLumpName(DEH_String("M_EPISOD"), PU_CACHE));
+    V_DrawPatchShadow2(54, 38, W_CacheLumpName(DEH_String("M_EPISOD"), PU_CACHE));
 }
 
 void M_VerifyNightmare(int key)
@@ -1195,7 +1214,7 @@ static char *msgNames[2] = {"M_MSGOFF","M_MSGON"};
 
 void M_DrawOptions(void)
 {
-    V_DrawPatchDirect(108, 15, W_CacheLumpName(DEH_String("M_OPTTTL"),
+    V_DrawPatchShadow2(108, 15, W_CacheLumpName(DEH_String("M_OPTTTL"),
                                                PU_CACHE));
 	
 // [crispy] no patches are drawn in the Options menu anymore
@@ -1228,7 +1247,7 @@ static void M_DrawMouse(void)
 {
     char mouse_menu_text[48];
 
-    V_DrawPatchDirect (60, 38, W_CacheLumpName(DEH_String("M_MSENS"), PU_CACHE));
+    V_DrawPatchShadow2 (60, 38, W_CacheLumpName(DEH_String("M_MSENS"), PU_CACHE));
 
     M_WriteText(MouseDef.x, MouseDef.y + LINEHEIGHT * mouse_horiz + 6,
                 "HORIZONTAL");
@@ -1263,6 +1282,8 @@ static void M_DrawMouse(void)
 static void M_DrawCrispnessBackground(void)
 {
     static pixel_t *sdest;
+
+    inhelpscreens = true;
 
     if (!sdest)
     {
@@ -1321,6 +1342,13 @@ typedef struct
     char *name;
 } multiitem_t;
 
+static multiitem_t multiitem_centerweapon[NUM_CENTERWEAPON] =
+{
+    {CENTERWEAPON_OFF, "off"},
+    {CENTERWEAPON_HOR, "horizontal"},
+    {CENTERWEAPON_HORVER, "centered"},
+    {CENTERWEAPON_BOB, "bobbing"},
+};
 
 static multiitem_t multiitem_coloredblood[NUM_COLOREDBLOOD] =
 {
@@ -1343,6 +1371,14 @@ static multiitem_t multiitem_crosshair[NUM_CROSSHAIRS] =
     {CROSSHAIR_OFF, "off"},
     {CROSSHAIR_STATIC, "static"},
     {CROSSHAIR_PROJECTED, "projected"},
+};
+
+static multiitem_t multiitem_crosshairtype[] =
+{
+    {-1, ""},
+    {0, "cross"},
+    {1, "angle"},
+    {2, "dot"},
 };
 
 static multiitem_t multiitem_freeaim[NUM_FREEAIMS] =
@@ -1446,9 +1482,10 @@ static void M_DrawCrispness2(void)
     M_DrawCrispnessSeparator(crispness_sep_tactical, "Tactical");
 
     M_DrawCrispnessMultiItem(crispness_crosshair, "Draw Crosshair", multiitem_crosshair, crispy_crosshair, true);
+    M_DrawCrispnessMultiItem(crispness_crosshairtype, "Crosshair Type", multiitem_crosshairtype, crispy_crosshairtype + 1, crispy_crosshair);
     M_DrawCrispnessMultiItem(crispness_freelook, "Allow Free Look", multiitem_freelook, crispy_freelook, true);
     M_DrawCrispnessMultiItem(crispness_neghealth, "Negative Player Health", multiitem_neghealth, crispy_neghealth, true);
-    M_DrawCrispnessItem(crispness_centerweapon, "Center Weapon when Firing", crispy_centerweapon, true);
+    M_DrawCrispnessMultiItem(crispness_centerweapon, "Weapon Attack Alignment", multiitem_centerweapon, crispy_centerweapon, true);
     M_DrawCrispnessItem(crispness_pitch, "Weapon Recoil Pitch", crispy_pitch, true);
     M_DrawCrispnessItem(crispness_secretmessage, "Show Revealed Secrets", crispy_secretmessage, true);
     M_DrawCrispnessItem(crispness_automapstats, "Show Level Stats in Automap", crispy_automapstats, true);
@@ -1751,7 +1788,7 @@ static void M_CrispyToggleExtsaveg(int choice)
 static void M_CrispyToggleCenterweapon(int choice)
 {
     choice = 0;
-    crispy_centerweapon = !crispy_centerweapon;
+    crispy_centerweapon = (crispy_centerweapon + 1) % NUM_CENTERWEAPON;
 }
 
 static void M_CrispyToggleColoredblood(int choice)
@@ -1779,6 +1816,23 @@ static void M_CrispyToggleCrosshair(int choice)
 {
     choice = 0;
     crispy_crosshair = (crispy_crosshair + 1) % NUM_CROSSHAIRS;
+}
+
+static void M_CrispyToggleCrosshairtype(int choice)
+{
+    if (!crispy_crosshair)
+    {
+	S_StartSound(NULL,sfx_oof);
+	return;
+    }
+
+    choice = 0;
+    crispy_crosshairtype = crispy_crosshairtype + 1;
+
+    if (laserpatch[crispy_crosshairtype].c == ' ')
+    {
+	crispy_crosshairtype = 0;
+    }
 }
 
 static void M_CrispyToggleFlipcorpses(int choice)
@@ -2124,7 +2178,14 @@ M_WriteText
 	w = SHORT (hu_font[c]->width);
 	if (cx+w > ORIGWIDTH)
 	    break;
+	if (currentMenu == &LoadDef || currentMenu == &SaveDef)
+	{
 	V_DrawPatchDirect(cx, cy, hu_font[c]);
+	}
+	else
+	{
+	    V_DrawPatchShadow1(cx, cy, hu_font[c]);
+	}
 	cx+=w;
     }
 }
@@ -2969,7 +3030,7 @@ void M_Drawer (void)
 		    M_WriteText(x, y+8-(M_StringHeight(alttext)/2), alttext);
 	    }
 	    else
-	    V_DrawPatchDirect (x, y, W_CacheLumpName(name, PU_CACHE));
+	    V_DrawPatchShadow2 (x, y, W_CacheLumpName(name, PU_CACHE));
 
 	    V_ClearDPTranslation();
 	}

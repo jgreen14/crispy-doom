@@ -410,6 +410,13 @@ void HU_Init(void)
 	hu_font[i] = (patch_t *) W_CacheLumpName(buffer, PU_STATIC);
     }
 
+    // [crispy] initialize the crosshair types
+    for (i = 0; laserpatch[i].c != ' '; i++)
+    {
+	DEH_snprintf(buffer, 9, "STCFN%.3d", toupper(laserpatch[i].c));
+	laserpatch[i].l = W_GetNumForName(buffer);
+    }
+
     // [crispy] colorize keycard and skull key messages
     CrispyReplaceColor(GOTBLUECARD, CR_BLUE, " blue ");
     CrispyReplaceColor(GOTBLUESKUL, CR_BLUE, " blue ");
@@ -688,24 +695,29 @@ static void HU_DrawCrosshair (void)
     static int		lump;
     static patch_t*	patch;
 
-    if (plr->readyweapon == wp_fist ||
-        plr->readyweapon == wp_chainsaw ||
-        plr->playerstate > PST_LIVE ||
+    if (weaponinfo[plr->readyweapon].ammo == am_noammo ||
+        plr->playerstate != PST_LIVE ||
         automapactive ||
         menuactive ||
         paused ||
         secret_on)
 	return;
 
-    if (!lump)
+    if (lump != laserpatch[crispy_crosshairtype].l)
     {
-	lump = W_GetNumForName(CRISPY_CROSSHAIR);
-	patch = W_CacheLumpNum(lump, PU_CACHE);
+	lump = laserpatch[crispy_crosshairtype].l;
+	patch = W_CacheLumpNum(lump, PU_STATIC);
     }
 
     dp_translucent = true;
 
-    V_DrawPatch(ORIGWIDTH/2-SHORT(patch->width/2), (screenblocks <= 10) ? (ORIGHEIGHT-ST_HEIGHT)/2 : ORIGHEIGHT/2, patch);
+    V_DrawPatch(ORIGWIDTH/2 -
+                SHORT(patch->width)/2 +
+                SHORT(patch->leftoffset),
+                (screenblocks <= 10) ? (ORIGHEIGHT-ST_HEIGHT)/2 : ORIGHEIGHT/2 -
+                SHORT(patch->height)/2 +
+                SHORT(patch->topoffset),
+                patch);
 }
 
 void HU_Drawer(void)
