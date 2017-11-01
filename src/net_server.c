@@ -613,8 +613,7 @@ static void NET_SV_ParseSYN(net_packet_t *packet,
         return;
     }
 
-    // [crispy] declare netcode-compatibility with Chocolate Doom
-    if (strcmp(client_version, NET_PACKAGE_STRING) != 0)
+    if (strcmp(client_version, PACKAGE_STRING) != 0)
     {
         //!
         // @category net
