@@ -31,6 +31,7 @@
 #include "r_local.h"
 
 // Needs access to LFB (guess what).
+#include "v_trans.h"
 #include "v_video.h"
 
 // State.
@@ -411,7 +412,7 @@ void R_DrawFuzzColumn (void)
 	//  a pixel that is either one column
 	//  left or right of the current one.
 	// Add index from colormap to index.
-	*dest = colormaps[6*256+dest[fuzzoffset[fuzzpos]]]; 
+	*dest = I_BlendDark(dest[fuzzoffset[fuzzpos]], 0xff>>2); 
 
 	// Clamp table lookup index.
 	if (++fuzzpos == FUZZTABLE) 
@@ -426,7 +427,7 @@ void R_DrawFuzzColumn (void)
     // draw one extra line using only pixels of that line and the one above
     if (cutoff)
     {
-	*dest = colormaps[6*256+dest[(fuzzoffset[fuzzpos]-FUZZOFF)/2]];
+	*dest = I_BlendDark(dest[(fuzzoffset[fuzzpos]-FUZZOFF)/2], 0xff>>2);
     }
 } 
 
@@ -492,12 +493,12 @@ void R_DrawFuzzColumnLow (void)
 	//  a pixel that is either one column
 	//  left or right of the current one.
 	// Add index from colormap to index.
-	*dest = colormaps[6*256+dest[fuzzoffset[fuzzpos]]]; 
-	*dest2 = colormaps[6*256+dest2[fuzzoffset[fuzzpos]]]; 
+	*dest = I_BlendDark(dest[fuzzoffset[fuzzpos]], 0xff>>2); 
+	*dest2 = I_BlendDark(dest2[fuzzoffset[fuzzpos]], 0xff>>2); 
 	if (hires)
 	{
-	    *dest3 = colormaps[6*256+dest[fuzzoffset[fuzzpos]]];
-	    *dest4 = colormaps[6*256+dest2[fuzzoffset[fuzzpos]]];
+	    *dest3 = I_BlendDark(dest3[fuzzoffset[fuzzpos]], 0xff>>2); 
+	    *dest4 = I_BlendDark(dest4[fuzzoffset[fuzzpos]], 0xff>>2); 
 	    dest3 += SCREENWIDTH << hires;
 	    dest4 += SCREENWIDTH << hires;
 	}
@@ -516,8 +517,8 @@ void R_DrawFuzzColumnLow (void)
     // draw one extra line using only pixels of that line and the one above
     if (cutoff)
     {
-	*dest = colormaps[6*256+dest[(fuzzoffset[fuzzpos]-FUZZOFF)/2]];
-	*dest2 = colormaps[6*256+dest2[(fuzzoffset[fuzzpos]-FUZZOFF)/2]];
+	*dest = I_BlendDark(dest[(fuzzoffset[fuzzpos]-FUZZOFF)/2], 0xff>>2);
+	*dest2 = I_BlendDark(dest2[(fuzzoffset[fuzzpos]-FUZZOFF)/2], 0xff>>2);
 	if (hires)
 	{
 	    *dest3 = *dest;
@@ -655,7 +656,7 @@ extern byte *tranmap;
 void R_DrawTLColumn (void)
 {
     int			count;
-    byte*		dest;
+    pixel_t*		dest, destrgb;
     fixed_t		frac;
     fixed_t		fracstep;
 
@@ -680,8 +681,8 @@ void R_DrawTLColumn (void)
 
     do
     {
-        // actual translucency map lookup taken from boom202s/R_DRAW.C:255
-        *dest = tranmap[(*dest<<8)+dc_colormap[0][dc_source[frac>>FRACBITS]]];
+       destrgb = dc_colormap[0][dc_source[frac>>FRACBITS]];
+       *dest = blendfunc(*dest, destrgb);
 	dest += SCREENWIDTH;
 
 	frac += fracstep;
@@ -692,10 +693,10 @@ void R_DrawTLColumn (void)
 void R_DrawTLColumnLow (void)
 {
     int			count;
-    byte*		dest;
-    byte*		dest2;
-    byte*		dest3;
-    byte*		dest4;
+    pixel_t*		dest, destrgb;
+    pixel_t*		dest2;
+    pixel_t*		dest3;
+    pixel_t*		dest4;
     fixed_t		frac;
     fixed_t		fracstep;
     int                 x;
@@ -726,14 +727,15 @@ void R_DrawTLColumnLow (void)
 
     do
     {
-	*dest = tranmap[(*dest<<8)+dc_colormap[0][dc_source[frac>>FRACBITS]]];
-	*dest2 = tranmap[(*dest2<<8)+dc_colormap[0][dc_source[frac>>FRACBITS]]];
+	destrgb = dc_colormap[0][dc_source[frac>>FRACBITS]];
+	*dest = blendfunc(*dest, destrgb);
+	*dest2 = blendfunc(*dest2, destrgb);
 	dest += SCREENWIDTH << hires;
 	dest2 += SCREENWIDTH << hires;
 	if (hires)
 	{
-	    *dest3 = tranmap[(*dest3<<8)+dc_colormap[0][dc_source[frac>>FRACBITS]]];
-	    *dest4 = tranmap[(*dest4<<8)+dc_colormap[0][dc_source[frac>>FRACBITS]]];
+	    *dest3 = blendfunc(*dest3, destrgb);
+	    *dest4 = blendfunc(*dest4, destrgb);
 	    dest3 += SCREENWIDTH << hires;
 	    dest4 += SCREENWIDTH << hires;
 	}
@@ -1101,6 +1103,11 @@ void R_FillBackScreen (void)
 	 
     for (y=0 ; y<SCREENHEIGHT-SBARHEIGHT ; y++) 
     { 
+	for (x=0 ; x<SCREENWIDTH ; x++)
+	{
+		*dest++ = colormaps[src[((y&63)<<6) + (x&63)]];
+	}
+/*
 	for (x=0 ; x<SCREENWIDTH/64 ; x++) 
 	{ 
 	    memcpy (dest, src+((y&63)<<6), 64); 
@@ -1111,7 +1118,8 @@ void R_FillBackScreen (void)
 	{ 
 	    memcpy (dest, src+((y&63)<<6), SCREENWIDTH&63); 
 	    dest += (SCREENWIDTH&63); 
-	} 
+	}
+*/
     } 
      
     // Draw screen and bezel; this is done to a separate screen buffer.

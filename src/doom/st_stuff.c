@@ -1435,7 +1435,7 @@ void ST_doPaletteStuff(void)
 {
 
     int		palette;
-    byte*	pal;
+//  byte*	pal;
     int		cnt;
     int		bzc;
     extern	boolean inhelpscreens; // [crispy] prevent palette changes
@@ -1501,8 +1501,9 @@ void ST_doPaletteStuff(void)
     if (palette != st_palette)
     {
 	st_palette = palette;
-	pal = (byte *) W_CacheLumpNum (lu_palette, PU_CACHE)+palette*768;
-	I_SetPalette (pal);
+//	pal = (byte *) W_CacheLumpNum (lu_palette, PU_CACHE)+palette*768;
+//	I_SetPalette (pal);
+	I_SetPalette (palette);
     }
 
 }
@@ -2136,7 +2137,8 @@ void ST_Stop (void)
     if (st_stopped)
 	return;
 
-    I_SetPalette (W_CacheLumpNum (lu_palette, PU_CACHE));
+//  I_SetPalette (W_CacheLumpNum (lu_palette, PU_CACHE));
+    I_SetPalette (lu_palette);
 
     st_stopped = true;
 }

@@ -66,19 +66,29 @@ static char *window_title = "";
 // is upscaled by an integer factor UPSCALE using "nearest" scaling and which
 // in turn is finally rendered to screen using "linear" scaling.
 
-static SDL_Surface *screenbuffer = NULL;
+//static SDL_Surface *screenbuffer = NULL;
 static SDL_Surface *rgbabuffer = NULL;
 static SDL_Texture *texture = NULL;
 static SDL_Texture *texture_upscaled = NULL;
 
+static SDL_Texture *curpane = NULL;
+static SDL_Texture *redpane = NULL;
+static SDL_Texture *yelpane = NULL;
+static SDL_Texture *grnpane = NULL;
+static int pane_alpha;
+
+/*
 static SDL_Rect blit_rect = {
     0,
     0,
     SCREENWIDTH,
     SCREENHEIGHT
 };
+*/
 
 static uint32_t pixel_format;
+static unsigned int rmask, gmask, bmask, amask;
+static const uint8_t blend_alpha = 0xa8;
 
 // palette
 
@@ -744,9 +754,9 @@ void I_FinishUpdate (void)
 	if (tics > 20) tics = 20;
 
 	for (i=0 ; i<tics*4 ; i+=4)
-	    I_VideoBuffer[ (SCREENHEIGHT-1)*SCREENWIDTH + i] = 0xff;
+	    I_VideoBuffer[ (SCREENHEIGHT-1)*SCREENWIDTH + i] = I_MapRGB(0xff, 0xff, 0xff);
 	for ( ; i<20*4 ; i+=4)
-	    I_VideoBuffer[ (SCREENHEIGHT-1)*SCREENWIDTH + i] = 0x0;
+	    I_VideoBuffer[ (SCREENHEIGHT-1)*SCREENWIDTH + i] = I_MapRGB(0x0, 0x0, 0x0);
     }
 
 	// [crispy] [AM] Real FPS counter
@@ -772,6 +782,7 @@ void I_FinishUpdate (void)
     // Draw disk icon before blit, if necessary.
     V_DrawDiskIcon();
 
+#if 0
     if (palette_to_set)
     {
         SDL_SetPaletteColors(screenbuffer->format->palette, palette, 0, 256);
@@ -790,6 +801,7 @@ void I_FinishUpdate (void)
     // 32-bit RGBA buffer that we can load into the texture.
 
     SDL_LowerBlit(screenbuffer, &blit_rect, rgbabuffer, &blit_rect);
+#endif
 
     // Update the intermediate texture with the contents of the RGBA buffer.
 
@@ -818,6 +830,12 @@ void I_FinishUpdate (void)
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
     }
 
+    if (curpane)
+    {
+	SDL_SetTextureAlphaMod(curpane, pane_alpha);
+	SDL_RenderCopy(renderer, curpane, NULL, NULL);
+    }
+
     // Draw!
 
     SDL_RenderPresent(renderer);
@@ -839,7 +857,7 @@ void I_ReadScreen (pixel_t* scr)
 //
 // I_SetPalette
 //
-void I_SetPalette (byte *doompalette)
+void I_SetDoomPalette (byte *doompalette)
 {
     int i;
 
@@ -855,6 +873,42 @@ void I_SetPalette (byte *doompalette)
 
     palette_to_set = true;
 }
+
+void I_SetPalette (int palette)
+{
+    switch (palette)
+    {
+	case 0:
+	    curpane = NULL;
+	    break;
+	case 1:
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+	case 7:
+	case 8:
+	    curpane = redpane;
+	    pane_alpha = 0xff * palette / 9;
+	    break;
+	case 9:
+	case 10:
+	case 11:
+	case 12:
+	    curpane = yelpane;
+	    pane_alpha = 0xff * (palette - 8) / 8;
+	    break;
+	case 13:
+	    curpane = grnpane;
+	    pane_alpha = 0xff * 125 / 1000;
+	    break;
+	default:
+	    I_Error("Unknown palette: %d!\n", palette);
+	    break;
+    }
+}
+
 
 // Given an RGB value, find the closest matching palette index.
 
@@ -1174,7 +1228,6 @@ void SetVideoMode(void) // [crispy] un-static
 {
     int w, h;
     int x, y;
-    unsigned int rmask, gmask, bmask, amask;
     int unused_bpp;
     int window_flags = 0, renderer_flags = 0;
     SDL_DisplayMode mode;
@@ -1292,6 +1345,7 @@ void SetVideoMode(void) // [crispy] un-static
     SDL_RenderClear(renderer);
     SDL_RenderPresent(renderer);
 
+#if 0
     // Create the 8-bit paletted and the 32-bit RGBA screenbuffer surfaces.
 
     if (screenbuffer == NULL)
@@ -1301,6 +1355,7 @@ void SetVideoMode(void) // [crispy] un-static
                                             0, 0, 0, 0);
         SDL_FillRect(screenbuffer, NULL, 0);
     }
+#endif
 
     // Format of rgbabuffer must match the screen pixel format because we
     // import the surface data into the texture.
@@ -1311,6 +1366,19 @@ void SetVideoMode(void) // [crispy] un-static
         rgbabuffer = SDL_CreateRGBSurface(0,
                                           SCREENWIDTH, SCREENHEIGHT, 32,
                                           rmask, gmask, bmask, amask);
+
+        SDL_FillRect(rgbabuffer, NULL, I_MapRGB(0xff, 0x0, 0x0));
+        redpane = SDL_CreateTextureFromSurface(renderer, rgbabuffer);
+        SDL_SetTextureBlendMode(redpane, SDL_BLENDMODE_BLEND);
+
+        SDL_FillRect(rgbabuffer, NULL, I_MapRGB(0xd7, 0xba, 0x45));
+        yelpane = SDL_CreateTextureFromSurface(renderer, rgbabuffer);
+        SDL_SetTextureBlendMode(yelpane, SDL_BLENDMODE_BLEND);
+
+        SDL_FillRect(rgbabuffer, NULL, I_MapRGB(0x0, 0xff, 0x0));
+        grnpane = SDL_CreateTextureFromSurface(renderer, rgbabuffer);
+        SDL_SetTextureBlendMode(grnpane, SDL_BLENDMODE_BLEND);
+
         SDL_FillRect(rgbabuffer, NULL, 0);
     }
 
@@ -1418,16 +1486,21 @@ void I_InitGraphics(void)
     // HW accelerator. Check for Mesa and warn if we're using it.
     CheckGLVersion();
 
+#if 0
     // Start with a clear black screen
     // (screen will be flipped after we set the palette)
 
     SDL_FillRect(screenbuffer, NULL, 0);
+#endif
 
     // Set the palette
 
     doompal = W_CacheLumpName(DEH_String("PLAYPAL"), PU_CACHE);
+    I_SetDoomPalette(doompal);
+#if 0
     I_SetPalette(doompal);
     SDL_SetPaletteColors(screenbuffer->format->palette, palette, 0, 256);
+#endif
 
     // SDL2-TODO UpdateFocus();
     UpdateGrab();
@@ -1447,12 +1520,16 @@ void I_InitGraphics(void)
     // 32-bit RGBA screen buffer that gets loaded into a texture that gets
     // finally rendered into our window or full screen in I_FinishUpdate().
 
+#if 0
     I_VideoBuffer = screenbuffer->pixels;
+#else
+    I_VideoBuffer = rgbabuffer->pixels;
+#endif
     V_RestoreBuffer();
 
     // Clear the screen to black.
 
-    memset(I_VideoBuffer, 0, SCREENWIDTH * SCREENHEIGHT);
+    memset(I_VideoBuffer, 0, SCREENWIDTH * SCREENHEIGHT * sizeof(*I_VideoBuffer));
 
     // clear out any events waiting at the start and center the mouse
   
@@ -1534,3 +1611,46 @@ void I_BindVideoVariables(void)
     M_BindIntVariable("usegamma",                  &usegamma);
     M_BindIntVariable("png_screenshots",           &png_screenshots);
 }
+
+const pixel_t I_BlendAdd (const pixel_t bg, const pixel_t fg)
+{
+	uint32_t r, g, b;
+
+	if ((r = (fg & rmask) + (bg & rmask)) > rmask) r = rmask;
+	if ((g = (fg & gmask) + (bg & gmask)) > gmask) g = gmask;
+	if ((b = (fg & bmask) + (bg & bmask)) > bmask) b = bmask;
+
+	return amask | r | g | b;
+}
+
+const pixel_t I_BlendDark (const pixel_t bg, const int d)
+{
+	const uint32_t r = (((bg & rmask) * (0xff - d)) >> 8) & rmask;
+	const uint32_t g = (((bg & gmask) * (0xff - d)) >> 8) & gmask;
+	const uint32_t b = (((bg & bmask) * (0xff - d)) >> 8) & bmask;
+
+	return amask | r | g | b;
+}
+
+const pixel_t I_BlendOver (const pixel_t bg, const pixel_t fg)
+{
+	const uint32_t r = ((blend_alpha * (fg & rmask) + (0xff - blend_alpha) * (bg & rmask)) >> 8) & rmask;
+	const uint32_t g = ((blend_alpha * (fg & gmask) + (0xff - blend_alpha) * (bg & gmask)) >> 8) & gmask;
+	const uint32_t b = ((blend_alpha * (fg & bmask) + (0xff - blend_alpha) * (bg & bmask)) >> 8) & bmask;
+
+	return amask | r | g | b;
+}
+
+const pixel_t (*blendfunc) (const pixel_t fg, const pixel_t bg) = I_BlendOver;
+
+const pixel_t I_MapRGB (const uint8_t r, const uint8_t g, const uint8_t b)
+{
+/*
+	return amask |
+	        (((r * rmask) >> 8) & rmask) |
+	        (((g * gmask) >> 8) & gmask) |
+	        (((b * bmask) >> 8) & bmask);
+*/
+	return SDL_MapRGB(rgbabuffer->format, r, g, b);
+}
+

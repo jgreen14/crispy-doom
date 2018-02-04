@@ -1005,7 +1005,7 @@ void R_RenderPlayerView (player_t* player)
     // [crispy] flashing HOM indicator
     V_DrawFilledBox(viewwindowx, viewwindowy,
         scaledviewwidth, scaledviewheight,
-        crispy->flashinghom ? (176 + (gametic % 16)) : 0);
+        colormaps[crispy->flashinghom ? (176 + (gametic % 16)) : 0]);
 
     // check for new console commands.
     NetUpdate ();

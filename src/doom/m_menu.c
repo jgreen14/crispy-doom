@@ -1338,29 +1338,22 @@ static void M_DrawMouse(void)
 // [crispy] crispness menu
 static void M_DrawCrispnessBackground(void)
 {
-    static byte *sdest;
-
-    inhelpscreens = true;
-
-    if (!sdest)
-    {
-	byte *src, *dest;
+	const byte *src;
+	pixel_t *dest;
 	int x, y;
 
-	src = W_CacheLumpName("FLOOR4_6" , PU_CACHE);
-	dest = (unsigned char *) Z_Malloc (SCREENWIDTH * SCREENHEIGHT * sizeof(*dest), PU_STATIC, NULL);
-	sdest = dest;
+	src = W_CacheLumpName("FLOOR4_6", PU_CACHE);
+	dest = I_VideoBuffer;
 
 	for (y = 0; y < SCREENHEIGHT; y++)
 	{
-	    for (x = 0; x < SCREENWIDTH; x++)
-	    {
-		*dest++ = src[(y & 63) * 64 + (x & 63)];
-	    }
+		for (x = 0; x < SCREENWIDTH; x++)
+		{
+			*dest++ = colormaps[src[(y & 63) * 64 + (x & 63)]];
+		}
 	}
-    }
 
-    memcpy(I_VideoBuffer, sdest, SCREENWIDTH * SCREENHEIGHT * sizeof(*I_VideoBuffer));
+	inhelpscreens = true;
 }
 
 static char crispy_menu_text[48];
@@ -2896,12 +2889,18 @@ boolean M_Responder (event_t* ev)
         }
         else if (key == key_menu_gamma)    // gamma toggle
         {
+	    extern void R_InitColormaps (void);
 	    usegamma++;
 	    if (usegamma > 4)
 		usegamma = 0;
 	    players[consoleplayer].message = DEH_String(gammamsg[usegamma]);
-            I_SetPalette (W_CacheLumpName (DEH_String("PLAYPAL"),PU_CACHE));
-	    return true;
+//          I_SetPalette (W_CacheLumpName (DEH_String("PLAYPAL"),PU_CACHE));
+            I_SetPalette (0);
+            R_InitColormaps();
+            inhelpscreens = true;
+            R_FillBackScreen();
+            viewactive = false;
+ 	    return true;
 	}
         // [crispy] those two can be considered as shortcuts for the IDCLEV cheat
         // and should be treated as such, i.e. add "if (!netgame)"

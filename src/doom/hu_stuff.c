@@ -393,6 +393,22 @@ char *mapnames_commercial[] =
     MHUSTR_21
 };
 
+static void CrispyReplaceColor (char *str, const int cr, const char *col)
+{
+    char *str_replace, col_replace[16];
+
+    if (M_ParmExists("-nodeh") || strcmp(str, DEH_String(str)))
+    {
+	return;
+    }
+
+    M_snprintf(col_replace, sizeof(col_replace),
+               "%s%s%s", crstr[cr], col, crstr[CR_NONE]);
+    str_replace = M_StringReplace(str, col, col_replace);
+    DEH_AddStringReplacement(str, str_replace);
+    free(str_replace);
+}
+
 void HU_Init(void)
 {
 
@@ -702,12 +718,12 @@ static void HU_DemoProgressBar (void)
 
     i = SCREENWIDTH * (demo_p - demobuffer) / defdemosize;
 
-//  V_DrawHorizLine(0, SCREENHEIGHT - 3, i, 4); // [crispy] white
-    V_DrawHorizLine(0, SCREENHEIGHT - 2, i, 0); // [crispy] black
-    V_DrawHorizLine(0, SCREENHEIGHT - 1, i, 4); // [crispy] white
+//  V_DrawHorizLine(0, SCREENHEIGHT - 3, i, colormaps[4]); // [crispy] white
+    V_DrawHorizLine(0, SCREENHEIGHT - 2, i, colormaps[0]); // [crispy] black
+    V_DrawHorizLine(0, SCREENHEIGHT - 1, i, colormaps[4]); // [crispy] white
 
-//  V_DrawHorizLine(0, SCREENHEIGHT - 2, 1, 4); // [crispy] white start
-//  V_DrawHorizLine(i - 1, SCREENHEIGHT - 2, 1, 4); // [crispy] white end
+//  V_DrawHorizLine(0, SCREENHEIGHT - 2, 1, colormaps[4]); // [crispy] white start
+//  V_DrawHorizLine(i - 1, SCREENHEIGHT - 2, 1, colormaps[4]); // [crispy] white end
 }
 
 // [crispy] static, non-projected crosshair

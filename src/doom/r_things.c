@@ -484,6 +484,7 @@ R_DrawVisSprite
 	{
 	    colfunc = tlcolfunc;
 	}
+	blendfunc = vis->blendfunc;
     }
 	
     dc_iscale = abs(vis->xiscale)>>(detailshift && !hires);
@@ -514,6 +515,7 @@ R_DrawVisSprite
     }
 
     colfunc = basecolfunc;
+    blendfunc = I_BlendOver;
 }
 
 
@@ -762,6 +764,12 @@ void R_ProjectSprite (mobj_t* thing)
 	    }
 	}
     }
+
+    // [crispy] translucent sprites
+    if (thing->flags & MF_TRANSLUCENT)
+    {
+	vis->blendfunc = (thing->frame & FF_FULLBRIGHT) ? I_BlendAdd : I_BlendOver;
+    }
 }
 
 // [crispy] generate a vissprite for the laser spot
@@ -817,7 +825,8 @@ static void R_DrawLSprite (void)
     vis->patch = lump - firstspritelump; // [crispy] not a sprite patch
     vis->colormap[0] = vis->colormap[1] = fixedcolormap ? fixedcolormap : colormaps; // [crispy] always full brightness
     vis->brightmap = dc_brightmap;
-//  vis->mobjflags |= MF_TRANSLUCENT;
+    vis->mobjflags |= MF_TRANSLUCENT;
+    vis->blendfunc = I_BlendAdd;
     vis->xiscale = FixedDiv (FRACUNIT, xscale);
     vis->texturemid = laserspot->z - viewz;
     vis->scale = xscale<<(detailshift && !hires);
@@ -1032,7 +1041,10 @@ void R_DrawPSprite (pspdef_t* psp, psprnum_t psprnum) // [crispy] differentiate 
 	
     // [crispy] translucent gun flash sprites
     if (psprnum == ps_flash)
+    {
         vis->mobjflags |= MF_TRANSLUCENT;
+        vis->blendfunc = I_BlendOver; // I_BlendAdd;
+    }
 
     R_DrawVisSprite (vis, vis->x1, vis->x2);
 }

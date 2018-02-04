@@ -48,7 +48,7 @@ void I_GraphicsCheckCommandLine(void);
 void I_ShutdownGraphics(void);
 
 // Takes full 8 bit values.
-void I_SetPalette (byte* palette);
+void I_SetPalette (int palette);
 int I_GetPaletteIndex(int r, int g, int b);
 
 void I_UpdateNoBlit (void);
@@ -104,5 +104,7 @@ void I_GetWindowPosition(int *x, int *y, int w, int h);
 
 // Joystic/gamepad hysteresis
 extern unsigned int joywait;
+
+extern const pixel_t I_MapRGB (const uint8_t r, const uint8_t g, const uint8_t b);
 
 #endif

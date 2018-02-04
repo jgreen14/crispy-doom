@@ -1107,7 +1107,7 @@ AM_drawFline
 	return;
     }
 
-#define PUTDOT(xx,yy,cc) fb[(yy)*f_w+(xx)]=(cc)
+#define PUTDOT(xx,yy,cc) fb[(yy)*f_w+(xx)]=(colormaps[(cc)])
 
     dx = fl->b.x - fl->a.x;
     ax = 2 * (dx<0 ? -dx : dx);
@@ -1683,7 +1683,7 @@ void AM_drawCrosshair(int color)
 	AM_drawFline(&v, color);
     }
     else
-    fb[(f_w*(f_h+1))/2] = color; // single point for now
+    fb[(f_w*(f_h+1))/2] = colormaps[color]; // single point for now
 
 }
 
