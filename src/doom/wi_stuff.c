@@ -401,7 +401,7 @@ static patch_t *background;
 // slam background
 void WI_slamBackground(void)
 {
-    V_DrawPatch(0, 0, background);
+    V_DrawPatchFullScreen(background, false);
 }
 
 // The ticker is used to detect keys
@@ -417,10 +417,12 @@ void WI_drawLF(void)
 {
     int y = WI_TITLEY;
 
-    // [crispy] prevent crashes with maps > 33
-    if ((unsigned)wbs->last >= NUMCMAPS)
+    // [crispy] prevent crashes with maps without map title graphics lump
+    if ((gamemode == commercial && (unsigned)wbs->last >= NUMCMAPS) ||
+        (gamemode != commercial && (unsigned)wbs->last >= (crispy->havee1m10 ? NUMMAPS + 1 : NUMMAPS)))
     {
-	return;
+        V_DrawPatch((SCREENWIDTH - SHORT(finished->width)) / 2, y, finished);
+        return;
     }
 
     if (gamemode != commercial || wbs->last < NUMCMAPS)
@@ -434,9 +436,10 @@ void WI_drawLF(void)
 
         V_DrawPatch((ORIGWIDTH - SHORT(finished->width)) / 2, y, finished);
     }
-    else if (wbs->last >= NUMCMAPS) // [crispy] prevent crashes with maps > 33
+    else if (wbs->last == NUMCMAPS)
     {
-        // MAP33 - nothing is displayed!
+        // MAP33 - draw "Finished!" only
+        V_DrawPatch((SCREENWIDTH - SHORT(finished->width)) / 2, y, finished);
     }
     else if (wbs->last > NUMCMAPS)
     {
@@ -459,10 +462,11 @@ void WI_drawEL(void)
 {
     int y = WI_TITLEY;
 
-    // [crispy] prevent crashes with maps > 33
-    if ((unsigned)wbs->last >= NUMCMAPS)
+    // [crispy] prevent crashes with maps without map title graphics lump
+    if ((gamemode == commercial && (unsigned)wbs->next >= NUMCMAPS) ||
+        (gamemode != commercial && (unsigned)wbs->next >= (crispy->havee1m10 ? NUMMAPS + 1 : NUMMAPS)))
     {
-	return;
+        return;
     }
 
     // draw "Entering"
@@ -1566,8 +1570,13 @@ void WI_drawStats(void)
     // [crispy] conditionally draw par times on intermission screen
     if (WI_drawParTime())
     {
-	V_DrawPatch(ORIGWIDTH/2 + SP_TIMEX, SP_TIMEY, par);
-	WI_drawTime(ORIGWIDTH - SP_TIMEX, SP_TIMEY, cnt_par, true);
+        V_DrawPatch(ORIGWIDTH/2 + SP_TIMEX, SP_TIMEY, par);
+
+        // Emulation: don't draw partime value if map33
+        if (true || gamemode != commercial || wbs->last != NUMCMAPS) // [crispy] always show
+        {
+            WI_drawTime(ORIGWIDTH - SP_TIMEX, SP_TIMEY, cnt_par, true);
+        }
     }
 
     // [crispy] draw total time after level time and par time
@@ -1650,7 +1659,7 @@ void WI_Ticker(void)
 
 }
 
-typedef void (*load_callback_t)(char *lumpname, patch_t **variable);
+typedef void (*load_callback_t)(const char *lumpname, patch_t **variable);
 
 // Common load/unload function.  Iterates over all the graphics
 // lumps to be loaded/unloaded into memory.
@@ -1666,6 +1675,11 @@ static void WI_loadUnloadData(load_callback_t callback)
 	for (i=0 ; i<9 ; i++)
 	{
 	    DEH_snprintf(name, 9, "NWILV%2.2d", i);
+            callback(name, &lnames[i]);
+	}
+	for ( ; i<NUMCMAPS ; i++)
+	{
+	    DEH_snprintf(name, 9, "CWILV%2.2d", i);
             callback(name, &lnames[i]);
 	}
     }
@@ -1820,7 +1834,7 @@ static void WI_loadUnloadData(load_callback_t callback)
     callback(name, &background);
 }
 
-static void WI_loadCallback(char *name, patch_t **variable)
+static void WI_loadCallback(const char *name, patch_t **variable)
 {
     *variable = W_CacheLumpName(name, PU_STATIC);
 }
@@ -1853,7 +1867,7 @@ void WI_loadData(void)
     bstar = W_CacheLumpName(DEH_String("STFDEAD0"), PU_STATIC);
 }
 
-static void WI_unloadCallback(char *name, patch_t **variable)
+static void WI_unloadCallback(const char *name, patch_t **variable)
 {
     W_ReleaseLumpName(name);
     *variable = NULL;

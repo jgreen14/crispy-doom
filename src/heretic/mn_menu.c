@@ -330,7 +330,7 @@ static void InitFonts(void)
 //
 //---------------------------------------------------------------------------
 
-void MN_DrTextA(char *text, int x, int y)
+void MN_DrTextA(const char *text, int x, int y)
 {
     char c;
     patch_t *p;
@@ -358,7 +358,7 @@ void MN_DrTextA(char *text, int x, int y)
 //
 //---------------------------------------------------------------------------
 
-int MN_TextAWidth(char *text)
+int MN_TextAWidth(const char *text)
 {
     char c;
     int width;
@@ -388,7 +388,7 @@ int MN_TextAWidth(char *text)
 //
 //---------------------------------------------------------------------------
 
-void MN_DrTextB(char *text, int x, int y)
+void MN_DrTextB(const char *text, int x, int y)
 {
     char c;
     patch_t *p;
@@ -416,7 +416,7 @@ void MN_DrTextB(char *text, int x, int y)
 //
 //---------------------------------------------------------------------------
 
-int MN_TextBWidth(char *text)
+int MN_TextBWidth(const char *text)
 {
     char c;
     int width;
@@ -642,6 +642,7 @@ void MN_LoadSlotText(void)
 
     for (i = 0; i < 6; i++)
     {
+        int retval;
         filename = SV_Filename(i);
         fp = fopen(filename, "rb+");
 	free(filename);
@@ -652,9 +653,9 @@ void MN_LoadSlotText(void)
             SlotStatus[i] = 0;
             continue;
         }
-        fread(&SlotText[i], SLOTTEXTLEN, 1, fp);
+        retval = fread(&SlotText[i], 1, SLOTTEXTLEN, fp);
         fclose(fp);
-        SlotStatus[i] = 1;
+        SlotStatus[i] = retval == SLOTTEXTLEN;
     }
     slottextloaded = true;
 }

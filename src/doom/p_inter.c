@@ -738,10 +738,9 @@ P_KillMobj
     target->tics -= P_Random()&3;
 
     // [crispy] randomly flip corpse, blood and death animation sprites
-    // except for Cyberdemons and Barrels which are too asymmetrical
-    if (target->type != MT_CYBORG && target->type != MT_BARREL)
+    if (target->flags & MF_FLIPPABLE)
     {
-	target->flipsprite = Crispy_Random() & 1;
+	target->health = (target->health & (int)~1) - (Crispy_Random() & 1);
     }
 
     if (target->tics < 1)
@@ -896,7 +895,7 @@ P_DamageMobj
 	// [crispy] negative player health
 	if (player->health < -99)
 	    player->health = -99;
-	if (!(crispy->neghealth == NEGHEALTH_ON || (deathmatch && crispy->neghealth == NEGHEALTH_DM)))
+	if (!crispy->neghealth)
 	{
 	if (player->health < 0)
 	    player->health = 0;

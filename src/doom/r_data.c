@@ -203,12 +203,22 @@ R_DrawColumnInCache
     int		count;
     int		position;
     byte*	source;
+    int		top = -1;
 
     while (patch->topdelta != 0xff)
     {
+	// [crispy] support for DeePsea tall patches
+	if (patch->topdelta <= top)
+	{
+		top += patch->topdelta;
+	}
+	else
+	{
+		top = patch->topdelta;
+	}
 	source = (byte *)patch + 3;
 	count = patch->length;
-	position = originy + patch->topdelta;
+	position = originy + top;
 
 	if (position < 0)
 	{
@@ -1046,6 +1056,33 @@ void R_InitColormaps (void)
 		Z_ChangeTag(colormap, PU_CACHE);
 	}
 
+    // [crispy] intermediate gamma levels
+    if (!gamma2table)
+    {
+	int i;
+
+	gamma2table = malloc(9 * sizeof(*gamma2table));
+
+	// [crispy] 5 original gamma levels
+	for (i = 0; i < 5; i++)
+	{
+		gamma2table[2*i] = (byte *)gammatable[i];
+	}
+
+	// [crispy] 4 intermediate gamma levels
+	for (i = 0; i < 4; i++)
+	{
+		int j;
+
+		gamma2table[2*i+1] = malloc(256 * sizeof(**gamma2table));
+
+		for (j = 0; j < 256; j++)
+		{
+			gamma2table[2*i+1][j] = (gamma2table[2*i][j] + gamma2table[2*i+2][j]) / 2;
+		}
+	}
+    }
+
 	// [crispy] initialize color translation and color strings tables
 	if (!crstr)
 	{
@@ -1057,8 +1094,6 @@ void R_InitColormaps (void)
 	keepgray = (i >= 0 && lumpinfo[i]->wad_file->iwad);
 
 	// [crispy] CRMAX - 2: don't override the original GREN and BLUE2 Boom tables
-//	I_SetDoomPalette(playpal);
-
 	for (i = 0; i < CRMAX - 2; i++)
 	{
 		for (j = 0; j < 256; j++)
@@ -1103,12 +1138,12 @@ void R_InitData (void)
 // R_FlatNumForName
 // Retrieval, get a flat number for a flat name.
 //
-int R_FlatNumForName (char* name)
+int R_FlatNumForName(const char *name)
 {
     int		i;
     char	namet[9];
 
-    i = W_CheckNumForName (name);
+    i = W_CheckNumForNameFromTo (name, lastflat, firstflat);
 
     if (i == -1)
     {
@@ -1131,7 +1166,7 @@ int R_FlatNumForName (char* name)
 // Check whether texture is available.
 // Filter out NoTexture indicator.
 //
-int	R_CheckTextureNumForName (char *name)
+int R_CheckTextureNumForName(const char *name)
 {
     texture_t *texture;
     int key;
@@ -1162,7 +1197,7 @@ int	R_CheckTextureNumForName (char *name)
 // Calls R_CheckTextureNumForName,
 //  aborts with error message.
 //
-int	R_TextureNumForName (char* name)
+int R_TextureNumForName(const char *name)
 {
     int		i;
 	
@@ -1217,15 +1252,8 @@ void R_PrecacheLevel (void)
 
     for (i=0 ; i<numsectors ; i++)
     {
-	// [crispy] add overflow guard for the flatpresent[] array
-	if (sectors[i].floorpic < numflats)
-	{
 	flatpresent[sectors[i].floorpic] = 1;
-	}
-	if (sectors[i].ceilingpic < numflats)
-	{
 	flatpresent[sectors[i].ceilingpic] = 1;
-	}
     }
 	
     flatmemory = 0;

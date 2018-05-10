@@ -60,12 +60,12 @@ typedef struct
 } maskdraw_t;
 
 
-laserspot_t laserspot_m = {0, 0, 0};
-laserspot_t *laserspot = &laserspot_m;
+static degenmobj_t laserspot_m = {{0}};
+degenmobj_t *laserspot = &laserspot_m;
 
 // [crispy] extendable, but the last char element must be zero,
 // keep in sync with multiitem_t multiitem_crosshairtype[] in m_menu.c
-laserpatch_t laserpatch_m[] = {
+static laserpatch_t laserpatch_m[] = {
 	{'+', "cross1", 0, 0, 0},
 	{'^', "cross2", 0, 0, 0},
 	{'.', "cross3", 0, 0, 0},
@@ -87,8 +87,8 @@ lighttable_t**	spritelights;
 
 // constant arrays
 //  used for psprite clipping and initializing clipping
-int		negonearray[SCREENWIDTH]; // [crispy] 32-bit integer math
-int		screenheightarray[SCREENWIDTH]; // [crispy] 32-bit integer math
+int		negonearray[MAXWIDTH]; // [crispy] 32-bit integer math
+int		screenheightarray[MAXWIDTH]; // [crispy] 32-bit integer math
 
 
 //
@@ -102,7 +102,7 @@ int		numsprites;
 
 spriteframe_t	sprtemp[29];
 int		maxframe;
-char*		spritename;
+const char	*spritename;
 
 
 
@@ -398,15 +398,25 @@ void R_DrawMaskedColumn (column_t* column)
     int64_t	topscreen; // [crispy] WiggleFix
     int64_t 	bottomscreen; // [crispy] WiggleFix
     fixed_t	basetexturemid;
+    int		top = -1;
 	
     basetexturemid = dc_texturemid;
     dc_texheight = 0; // [crispy] Tutti-Frutti fix
 	
     for ( ; column->topdelta != 0xff ; ) 
     {
+	// [crispy] support for DeePsea tall patches
+	if (column->topdelta <= top)
+	{
+		top += column->topdelta;
+	}
+	else
+	{
+		top = column->topdelta;
+	}
 	// calculate unclipped screen coordinates
 	//  for post
-	topscreen = sprtopscreen + spryscale*column->topdelta;
+	topscreen = sprtopscreen + spryscale*top;
 	bottomscreen = topscreen + spryscale*column->length;
 
 	dc_yl = (int)((topscreen+FRACUNIT-1)>>FRACBITS); // [crispy] WiggleFix
@@ -420,8 +430,8 @@ void R_DrawMaskedColumn (column_t* column)
 	if (dc_yl <= dc_yh)
 	{
 	    dc_source = (byte *)column + 3;
-	    dc_texturemid = basetexturemid - (column->topdelta<<FRACBITS);
-	    // dc_source = (byte *)column + 3 - column->topdelta;
+	    dc_texturemid = basetexturemid - (top<<FRACBITS);
+	    // dc_source = (byte *)column + 3 - top;
 
 	    // Drawn by either R_DrawColumn
 	    //  or (SHADOW) R_DrawFuzzColumn.
@@ -487,7 +497,7 @@ R_DrawVisSprite
 	blendfunc = vis->blendfunc;
     }
 	
-    dc_iscale = abs(vis->xiscale)>>(detailshift && !hires);
+    dc_iscale = abs(vis->xiscale)>>detailshift;
     dc_texturemid = vis->texturemid;
     frac = vis->startfrac;
     spryscale = vis->scale;
@@ -567,7 +577,7 @@ void R_ProjectSprite (mobj_t* thing)
         // that would necessitate turning it off for a tic.
         thing->interp == true &&
         // Don't interpolate during a paused state.
-        !paused && !menuactive)
+        !paused && (!menuactive || demoplayback || netgame))
     {
         interpx = thing->oldx + FixedMul(thing->x - thing->oldx, fractionaltic);
         interpy = thing->oldy + FixedMul(thing->y - thing->oldy, fractionaltic);
@@ -655,9 +665,12 @@ void R_ProjectSprite (mobj_t* thing)
     }
 
     // [crispy] randomly flip corpse, blood and death animation sprites
-    if (crispy->flipcorpses)
+    if (crispy->flipcorpses &&
+        (thing->flags & MF_FLIPPABLE) &&
+        !(thing->flags & MF_SHOOTABLE) &&
+        (thing->health & 1))
     {
-	flip = flip ^ thing->flipsprite;
+	flip = !flip;
     }
     
     // calculate edges of the shape
@@ -680,7 +693,7 @@ void R_ProjectSprite (mobj_t* thing)
     vis = R_NewVisSprite ();
     vis->translation = NULL; // [crispy] no color translation
     vis->mobjflags = thing->flags;
-    vis->scale = xscale<<(detailshift && !hires);
+    vis->scale = xscale<<detailshift;
     vis->gx = interpx;
     vis->gy = interpy;
     vis->gz = interpz;
@@ -737,9 +750,9 @@ void R_ProjectSprite (mobj_t* thing)
     vis->brightmap = R_BrightmapForSprite(thing->sprite);
 
     // [crispy] colored blood
-    if ((((crispy->coloredblood & COLOREDBLOOD_BLOOD) && thing->type == MT_BLOOD) ||
-        ((crispy->coloredblood & COLOREDBLOOD_CORPSE) && thing->sprite == SPR_POL5)) // [crispy] S_GIBS
-        && thing->target)
+    if (crispy->coloredblood &&
+        (thing->type == MT_BLOOD || thing->state - states == S_GIBS) &&
+        thing->target)
     {
 	// [crispy] Thorn Things in Hacx bleed green blood
 	if (gamemission == pack_hacx)
@@ -772,6 +785,46 @@ void R_ProjectSprite (mobj_t* thing)
     }
 }
 
+extern void P_LineLaser (mobj_t* t1, angle_t angle, fixed_t distance, fixed_t slope);
+
+byte *R_LaserspotColor (void)
+{
+	if (crispy->crosshairtarget)
+	{
+		// [crispy] the projected crosshair code calls P_LineLaser() itself
+		if (crispy->crosshair == CROSSHAIR_STATIC)
+		{
+			P_LineLaser(viewplayer->mo, viewangle,
+			            16*64*FRACUNIT, PLAYER_SLOPE(viewplayer));
+		}
+		if (linetarget)
+		{
+			return cr[CR_GRAY];
+		}
+	}
+
+	// [crispy] keep in sync with st_stuff.c:ST_WidgetColor(hudcolor_health)
+	if (crispy->crosshairhealth)
+	{
+		const int health = viewplayer->health;
+
+		// [crispy] Invulnerability powerup and God Mode cheat turn Health values gray
+		if (viewplayer->cheats & CF_GODMODE ||
+		    viewplayer->powers[pw_invulnerability])
+			return cr[CR_GRAY];
+		else if (health < 25)
+			return cr[CR_RED];
+		else if (health < 50)
+			return cr[CR_GOLD];
+		else if (health <= 100)
+			return cr[CR_GREEN];
+		else
+			return cr[CR_BLUE];
+	}
+
+	return NULL;
+}
+
 // [crispy] generate a vissprite for the laser spot
 static void R_DrawLSprite (void)
 {
@@ -781,8 +834,6 @@ static void R_DrawLSprite (void)
 
     static int		lump;
     static patch_t*	patch;
-
-    extern void	P_LineLaser (mobj_t* t1, angle_t angle, fixed_t distance, fixed_t slope);
 
     if (weaponinfo[viewplayer->readyweapon].ammo == am_noammo ||
         viewplayer->playerstate != PST_LIVE)
@@ -794,14 +845,10 @@ static void R_DrawLSprite (void)
 	patch = W_CacheLumpNum(lump, PU_STATIC);
     }
 
-    crispy->crosshair |= CROSSHAIR_INTERCEPT; // [crispy] intercepts overflow guard
     P_LineLaser(viewplayer->mo, viewangle,
                 16*64*FRACUNIT, PLAYER_SLOPE(viewplayer));
-    crispy->crosshair &= ~CROSSHAIR_INTERCEPT; // [crispy] intercepts overflow guard
 
-    if (!laserspot->x &&
-        !laserspot->y &&
-        !laserspot->z)
+    if (!laserspot->thinker.function.acv)
 	return;
 
     tz = FixedMul(laserspot->x - viewx, viewcos) +
@@ -827,9 +874,10 @@ static void R_DrawLSprite (void)
     vis->brightmap = dc_brightmap;
     vis->mobjflags |= MF_TRANSLUCENT;
     vis->blendfunc = I_BlendAdd;
+    vis->translation = R_LaserspotColor();
     vis->xiscale = FixedDiv (FRACUNIT, xscale);
     vis->texturemid = laserspot->z - viewz;
-    vis->scale = xscale<<(detailshift && !hires);
+    vis->scale = xscale<<detailshift;
 
     tx -= SHORT(patch->width/2)<<FRACBITS;
     vis->x1 =  (centerxfrac + FixedMul(tx, xscale))>>FRACBITS;
@@ -864,7 +912,7 @@ void R_AddSprites (sector_t* sec)
     // Well, now it will be done.
     sec->validcount = validcount;
 	
-    lightnum = (sec->lightlevel >> LIGHTSEGSHIFT)+extralight;
+    lightnum = (sec->lightlevel >> LIGHTSEGSHIFT)+(extralight * LIGHTBRIGHT);
 
     if (lightnum < 0)		
 	spritelights = scalelight[0];
@@ -994,7 +1042,7 @@ void R_DrawPSprite (pspdef_t* psp, psprnum_t psprnum) // [crispy] differentiate 
     vis->texturemid = (BASEYCENTER<<FRACBITS)+FRACUNIT/4-(psp_sy-spritetopoffset[lump]);
     vis->x1 = x1 < 0 ? 0 : x1;
     vis->x2 = x2 >= viewwidth ? viewwidth-1 : x2;	
-    vis->scale = pspritescale<<(detailshift && !hires);
+    vis->scale = pspritescale<<detailshift;
     
     if (flip)
     {
@@ -1008,7 +1056,7 @@ void R_DrawPSprite (pspdef_t* psp, psprnum_t psprnum) // [crispy] differentiate 
     }
     
     // [crispy] free look
-    vis->texturemid += FixedMul(((centery - viewheight / 2) << FRACBITS), vis->xiscale);
+    vis->texturemid += FixedMul(((centery - viewheight / 2) << FRACBITS), vis->xiscale) >> detailshift;
 
     if (vis->x1 > x1)
 	vis->startfrac += vis->xiscale*(vis->x1-x1);
@@ -1063,7 +1111,7 @@ void R_DrawPlayerSprites (void)
     // get light level
     lightnum =
 	(viewplayer->mo->subsector->sector->lightlevel >> LIGHTSEGSHIFT) 
-	+extralight;
+	+(extralight * LIGHTBRIGHT);
 
     if (lightnum < 0)		
 	spritelights = scalelight[0];

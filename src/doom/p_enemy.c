@@ -1330,6 +1330,9 @@ void A_VileTarget (mobj_t*	actor)
     actor->tracer = fog;
     fog->target = actor;
     fog->tracer = actor->target;
+    // [crispy] play DSFLAMST sound when Arch-Vile spawns fire attack
+    if (crispy->soundfix)
+	S_StartSound(fog, sfx_flamst);
     A_Fire (fog);
 }
 
@@ -1541,7 +1544,7 @@ A_PainShootSkull
     }
 		
     // [crispy] Lost Souls bleed Puffs
-    if (crispy->coloredblood & COLOREDBLOOD_FIX)
+    if (crispy->coloredblood)
 	newmobj->flags |= MF_NOBLOOD;
 
     newmobj->target = actor->target;

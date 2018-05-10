@@ -63,6 +63,7 @@
 #include "v_trans.h" // [crispy] colored cheat messages
 
 extern int screenblocks; // [crispy] for the Crispy HUD
+extern boolean inhelpscreens; // [crispy] prevent palette changes
 
 //
 // STATUS BAR DATA
@@ -462,6 +463,10 @@ void ST_refreshBackground(void)
         V_UseBuffer(st_backing_screen);
 
 	V_DrawPatch(ST_X, 0, sbar);
+
+	// [crispy] back up arms widget background
+	if (!deathmatch)
+	    V_DrawPatch(ST_ARMSBGX, 0, armsbg);
 
 	if (netgame)
 	    V_DrawPatch(ST_FX, 0, faceback);
@@ -1438,7 +1443,6 @@ void ST_doPaletteStuff(void)
 //  byte*	pal;
     int		cnt;
     int		bzc;
-    extern	boolean inhelpscreens; // [crispy] prevent palette changes
 
     cnt = plyr->damagecount;
 
@@ -1756,7 +1760,8 @@ void ST_Drawer (boolean fullscreen, boolean refresh)
 {
   
     st_statusbaron = (!fullscreen) || (automapactive && !crispy->automapoverlay) || screenblocks >= CRISPY_HUD;
-    st_firsttime = st_firsttime || refresh;
+    // [crispy] immediately redraw status bar after help screens have been shown
+    st_firsttime = st_firsttime || refresh || inhelpscreens;
 
     if (crispy->cleanscreenshot == 2)
         return;
@@ -1777,7 +1782,7 @@ void ST_Drawer (boolean fullscreen, boolean refresh)
 	dp_translucent = false;
 }
 
-typedef void (*load_callback_t)(char *lumpname, patch_t **variable); 
+typedef void (*load_callback_t)(const char *lumpname, patch_t **variable);
 
 // Iterates through all graphics to be loaded or unloaded, along with
 // the variable they use, invoking the specified callback function.
@@ -1868,7 +1873,7 @@ static void ST_loadUnloadGraphics(load_callback_t callback)
     ++facenum;
 }
 
-static void ST_loadCallback(char *lumpname, patch_t **variable)
+static void ST_loadCallback(const char *lumpname, patch_t **variable)
 {
     *variable = W_CacheLumpName(lumpname, PU_STATIC);
 }
@@ -1899,7 +1904,7 @@ void ST_loadData(void)
     }
 }
 
-static void ST_unloadCallback(char *lumpname, patch_t **variable)
+static void ST_unloadCallback(const char *lumpname, patch_t **variable)
 {
     W_ReleaseLumpName(lumpname);
     *variable = NULL;
@@ -2180,6 +2185,7 @@ void ST_DrawDemoTimer (const int time)
 
 	// [crispy] draw the Demo Timer widget with gray numbers
 	dp_translation = cr[CR_GRAY];
+	dp_translucent = true;
 
 	while (n-- > 0)
 	{
@@ -2194,5 +2200,6 @@ void ST_DrawDemoTimer (const int time)
 	}
 
 	dp_translation = NULL;
+	dp_translucent = false;
 }
 

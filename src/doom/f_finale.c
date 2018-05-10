@@ -149,6 +149,15 @@ void F_StartFinale (void)
             screen->level = 21;
         }
 
+        // [crispy] During demo recording/playback or network games
+        // these two packs behave like any other ordinary PWAD
+        if (!crispy->singleplayer &&
+            (gamemission == pack_nerve || gamemission == pack_master)
+            && screen->mission == doom2)
+        {
+            screen->mission = gamemission;
+        }
+
         if (logical_gamemission == screen->mission
          && (logical_gamemission != doom || gameepisode == screen->episode)
          && gamemap == screen->level)
@@ -269,7 +278,7 @@ void F_TextWrite (void)
     
     int		x,y,w;
     signed int	count;
-    char*	ch;
+    char *ch; // [crispy] un-const
     int		c;
     int		cx;
     int		cy;
@@ -343,7 +352,7 @@ void F_TextWrite (void)
 	{
 	    break;
 	}
-	V_DrawPatch(cx, cy, hu_font[c]);
+	V_DrawPatchShadow1(cx, cy, hu_font[c]);
 	cx+=w;
     }
 	
@@ -629,9 +638,9 @@ boolean F_CastResponder (event_t* ev)
 }
 
 
-void F_CastPrint (char* text)
+void F_CastPrint (const char *text)
 {
-    char*	ch;
+    const char *ch;
     int		c;
     int		cx;
     int		w;
@@ -673,7 +682,7 @@ void F_CastPrint (char* text)
 	}
 		
 	w = SHORT (hu_font[c]->width);
-	V_DrawPatch(cx, 180, hu_font[c]);
+	V_DrawPatchShadow1(cx, 180, hu_font[c]);
 	cx+=w;
     }
 	
@@ -693,7 +702,7 @@ void F_CastDrawer (void)
     patch_t*		patch;
     
     // erase the entire screen to a background
-    V_DrawPatch (0, 0, W_CacheLumpName (DEH_String("BOSSBACK"), PU_CACHE));
+    V_DrawPatchFullScreen (W_CacheLumpName (DEH_String("BOSSBACK"), PU_CACHE), false);
 
     F_CastPrint (DEH_String(castorder[castnum].name));
     
@@ -719,6 +728,8 @@ void F_CastDrawer (void)
 //
 // F_DrawPatchCol
 //
+static fixed_t dxi, dy, dyi;
+
 void
 F_DrawPatchCol
 ( int		x,
@@ -729,31 +740,25 @@ F_DrawPatchCol
     byte*	source;
     pixel_t*	dest;
     pixel_t*	desttop;
-    int		count, f;
+    int		count;
 	
-    column = (column_t *)((byte *)patch + LONG(patch->columnofs[col]));
+    column = (column_t *)((byte *)patch + LONG(patch->columnofs[col >> FRACBITS]));
     desttop = I_VideoBuffer + x;
 
     // step through the posts in a column
     while (column->topdelta != 0xff )
     {
-      for (f = 0; f <= hires; f++)
-      {
+	int srccol = 0;
 	source = (byte *)column + 3;
-	dest = desttop + column->topdelta*(SCREENWIDTH << hires) + (x * hires) + f;
-	count = column->length;
+	dest = desttop + ((column->topdelta * dy) >> FRACBITS)*SCREENWIDTH;
+	count = (column->length * dy) >> FRACBITS;
 		
 	while (count--)
 	{
-	    if (hires)
-	    {
-	        *dest = *source;
-	        dest += SCREENWIDTH;
-	    }
-	    *dest = *source++;
+	    *dest = source[srccol >> FRACBITS];
+	    srccol += dyi;
 	    dest += SCREENWIDTH;
 	}
-      }
 	column = (column_t *)(  (byte *)column + column->length + 4 );
     }
 }
@@ -772,6 +777,10 @@ void F_BunnyScroll (void)
     int		stage;
     static int	laststage;
 		
+    dxi = (ORIGWIDTH << FRACBITS) / SCREENWIDTH;
+    dy = (SCREENHEIGHT << FRACBITS) / ORIGHEIGHT;
+    dyi = (ORIGHEIGHT << FRACBITS) / SCREENHEIGHT;
+
     p1 = W_CacheLumpName (DEH_String("PFUB2"), PU_LEVEL);
     p2 = W_CacheLumpName (DEH_String("PFUB1"), PU_LEVEL);
 
@@ -782,13 +791,14 @@ void F_BunnyScroll (void)
 	scrolled = ORIGWIDTH;
     if (scrolled < 0)
 	scrolled = 0;
+    scrolled <<= FRACBITS;
 		
-    for ( x=0 ; x<ORIGWIDTH ; x++)
+    for ( x=0 ; x<ORIGWIDTH << FRACBITS; x+=dxi)
     {
-	if (x+scrolled < ORIGWIDTH)
-	    F_DrawPatchCol (x, p1, x+scrolled);
+	if (x+scrolled < ORIGWIDTH << FRACBITS)
+	    F_DrawPatchCol (x/dxi, p1, x+scrolled);
 	else
-	    F_DrawPatchCol (x, p2, x+scrolled - ORIGWIDTH);		
+	    F_DrawPatchCol (x/dxi, p2, x+scrolled - (ORIGWIDTH << FRACBITS));
     }
 	
     if (finalecount < 1130)
@@ -851,7 +861,7 @@ static void F_ArtScreenDrawer(void)
 
         lumpname = DEH_String(lumpname);
 
-        V_DrawPatch (0, 0, W_CacheLumpName(lumpname, PU_CACHE));
+        V_DrawPatchFullScreen (W_CacheLumpName(lumpname, PU_CACHE), false);
     }
 }
 

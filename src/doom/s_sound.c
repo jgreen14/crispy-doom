@@ -107,6 +107,14 @@ static musicinfo_t *mus_playing = NULL;
 
 int snd_channels = 8;
 
+// [crispy] variable number of sound channels
+static inline int update_snd_channels (void)
+{
+	return (crispy->sndchannels == 2) ? 32 :
+	       (crispy->sndchannels == 1) ? 16 :
+	       8;
+}
+
 //
 // Initializes sound stuff, including volume
 // Sets channels, SFX and music volume,
@@ -141,8 +149,10 @@ void S_Init(int sfxVolume, int musicVolume)
     // Allocating the internal channels for mixing
     // (the maximum numer of sounds rendered
     // simultaneously) within zone memory.
-    channels = Z_Malloc(snd_channels*sizeof(channel_t), PU_STATIC, 0);
-    sobjs = Z_Malloc(snd_channels*sizeof(degenmobj_t), PU_STATIC, 0);
+    // [crispy] variable number of sound channels
+    snd_channels = update_snd_channels();
+    channels = I_Realloc(NULL, snd_channels*sizeof(channel_t));
+    sobjs = I_Realloc(NULL, snd_channels*sizeof(degenmobj_t));
 
     // Free all channels for use
     for (i=0 ; i<snd_channels ; i++)
@@ -241,6 +251,7 @@ void S_Start(void)
     }
 
     // start new music for the level
+    if (musicVolume) // [crispy] do not reset pause state at zero music volume
     mus_paused = 0;
 
     if (gamemode == commercial)
@@ -313,9 +324,8 @@ void S_Start(void)
 	prevmap = curmap;
     }
 
-    // [crispy] MUSINFO value 0 is reserved for the map's default music
+    // [crispy] musinfo.items[0] is reserved for the map's default music
     memset(&musinfo, 0, sizeof(musinfo));
-    musinfo.items[0] = -1;
 
     S_ChangeMusic(mnum, true);
 }
@@ -357,30 +367,6 @@ void S_UnlinkSound(mobj_t *origin)
             break;
         }
     }
-}
-
-// [crispy] check if a specific sound is playing from a specific origin
-boolean S_SoundIsPlaying(mobj_t *origin, int sfx_id)
-{
-    int cnum;
-    const sfxinfo_t *sfx;
-
-    if (sfx_id < 1 || sfx_id > NUMSFX)
-    {
-        return false;
-    }
-
-    sfx = &S_sfx[sfx_id];
-
-    for (cnum=0 ; cnum<snd_channels ; cnum++)
-    {
-        if (channels[cnum].sfxinfo == sfx && channels[cnum].origin == origin)
-        {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 //
@@ -516,8 +502,7 @@ static int S_AdjustSoundParams(mobj_t *listener, mobj_t *source,
             / S_ATTENUATOR;
     }
 
-    // [JN] Zero SFX volume means there must not be *any* sounds at all.
-    return (*vol > 0 && (snd_SfxVolume || !crispy->soundfix));
+    return (*vol > 0);
 }
 
 // clamp supplied integer to the range 0 <= x <= 255.
@@ -552,8 +537,8 @@ void S_StartSound(void *origin_p, int sfx_id)
     origin = (mobj_t *) origin_p;
     volume = snd_SfxVolume;
 
-    // [crispy] make non-fatal
-    if (sfx_id == sfx_None)
+    // [crispy] make non-fatal, consider zero volume
+    if (sfx_id == sfx_None || !snd_SfxVolume)
     {
         return;
     }
@@ -644,6 +629,23 @@ void S_StartSound(void *origin_p, int sfx_id)
 
     channels[cnum].pitch = pitch;
     channels[cnum].handle = I_StartSound(sfx, cnum, volume, sep, channels[cnum].pitch);
+}
+
+void S_StartSoundOnce (void *origin_p, int sfx_id)
+{
+    int cnum;
+    const sfxinfo_t *const sfx = &S_sfx[sfx_id];
+
+    for (cnum = 0; cnum < snd_channels; cnum++)
+    {
+        if (channels[cnum].sfxinfo == sfx &&
+            channels[cnum].origin == origin_p)
+        {
+            return;
+        }
+    }
+
+    S_StartSound(origin_p, sfx_id);
 }
 
 //
@@ -745,6 +747,17 @@ void S_SetMusicVolume(int volume)
     {
         I_Error("Attempt to set music volume at %d",
                 volume);
+    }
+
+    // [crispy] [JN] Fixed bug when music was hearable with zero volume
+    if (!musicVolume)
+    {
+        S_PauseSound();
+    }
+    else
+    if (!paused)
+    {
+        S_ResumeSound();
     }
 
     I_SetMusicVolume(volume);
@@ -857,8 +870,8 @@ void S_ChangeMusic(int musicnum, int looping)
 
     mus_playing = music;
 
-    // [crispy] MUSINFO value 0 is reserved for the map's default music
-    if (musinfo.items[0] == -1)
+    // [crispy] musinfo.items[0] is reserved for the map's default music
+    if (!musinfo.items[0])
     {
 	musinfo.items[0] = music->lumpnum;
 	S_music[mus_musinfo].lumpnum = -1;
@@ -929,3 +942,25 @@ void S_StopMusic(void)
     }
 }
 
+// [crispy] variable number of sound channels
+void S_UpdateSndChannels (void)
+{
+	int i;
+
+	for (i = 0; i < snd_channels; i++)
+	{
+		if (channels[i].sfxinfo)
+		{
+			S_StopChannel(i);
+		}
+	}
+
+	snd_channels = update_snd_channels();
+	channels = I_Realloc(channels, snd_channels * sizeof(channel_t));
+	sobjs = I_Realloc(sobjs, snd_channels * sizeof(degenmobj_t));
+
+	for (i = 0; i < snd_channels; i++)
+	{
+		channels[i].sfxinfo = 0;
+	}
+}

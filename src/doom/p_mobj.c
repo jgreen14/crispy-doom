@@ -664,6 +664,12 @@ P_SpawnMobjSafe
     else 
 	mobj->z = z;
 
+    // [crispy] randomly flip corpse, blood and death animation sprites
+    if (mobj->flags & MF_FLIPPABLE && !(mobj->flags & MF_SHOOTABLE))
+    {
+	mobj->health = (mobj->health & (int)~1) - (Crispy_Random() & 1);
+    }
+    
     // [AM] Do not interpolate on spawn.
     mobj->interp = false;
 
@@ -938,6 +944,13 @@ void P_SpawnMapThing (mapthing_t* mthing)
     else
 	bit = 1<<(gameskill-1);
 
+    // [crispy] warn about mapthings without any skill tag set
+    if (!(mthing->options & (MTF_EASY|MTF_NORMAL|MTF_HARD)))
+    {
+	fprintf(stderr, "P_SpawnMapThing: Mapthing type %i without any skill tag at (%i, %i)\n",
+	       mthing->type, mthing->x, mthing->y);
+    }
+
     if (!(mthing->options & bit) )
 	return;
 	
@@ -1004,20 +1017,15 @@ void P_SpawnMapThing (mapthing_t* mthing)
     }
 
     // [crispy] Lost Souls bleed Puffs
-    if ((crispy->coloredblood & COLOREDBLOOD_FIX) && i == MT_SKULL)
+    if (crispy->coloredblood && i == MT_SKULL)
         mobj->flags |= MF_NOBLOOD;
 
-    // [crispy] randomly flip space marine corpse objects
-    if (mobj->info->spawnstate == S_PLAY_DIE7 ||
-        mobj->info->spawnstate == S_PLAY_XDIE9)
+    // [crispy] randomly colorize space marine corpse objects
+    if (!netgame && crispy->coloredblood &&
+        (mobj->info->spawnstate == S_PLAY_DIE7 ||
+        mobj->info->spawnstate == S_PLAY_XDIE9))
     {
-	mobj->flipsprite = Crispy_Random() & 1;
-	// [crispy] randomly colorize space marine corpse objects
-	if (!netgame &&
-	    crispy->coloredblood & COLOREDBLOOD_CORPSE)
-	{
-	    mobj->flags |= (Crispy_Random() & 3) << MF_TRANSSHIFT;
-	}
+	mobj->flags |= (Crispy_Random() & 3) << MF_TRANSSHIFT;
     }
 }
 
@@ -1063,9 +1071,6 @@ P_SpawnPuffSafe
     // don't make punches spark on the wall
     if (attackrange == MELEERANGE)
 	P_SetMobjState (th, safe ? P_LatestSafeState(S_PUFF3) : S_PUFF3);
-
-    // [crispy] randomly flip corpse, blood and death animation sprites
-    th->flipsprite = Crispy_Random() & 1;
 }
 
 
@@ -1100,11 +1105,8 @@ P_SpawnBlood
     th->target = target;
 
     // [crispy] Spectres bleed spectre blood
-    if (crispy->coloredblood & COLOREDBLOOD_FIX)
+    if (crispy->coloredblood)
 	th->flags |= (target->flags & MF_SHADOW);
-
-    // [crispy] randomly flip corpse, blood and death animation sprites
-    th->flipsprite = Crispy_Random() & 1;
 }
 
 

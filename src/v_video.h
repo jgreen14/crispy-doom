@@ -65,6 +65,7 @@ void V_DrawXlaPatch(int x, int y, patch_t * patch);     // villsa [STRIFE]
 void V_DrawPatchDirect(int x, int y, patch_t *patch);
 void V_DrawPatchShadow1(int x, int y, patch_t *patch);
 void V_DrawPatchShadow2(int x, int y, patch_t *patch);
+void V_DrawPatchFullScreen(patch_t *patch, boolean flipped);
 
 // Draw a linear block of pixels into the view buffer.
 
@@ -95,7 +96,7 @@ void V_RestoreBuffer(void);
 // format described in the string passed to the function, eg.
 // "DOOM%02i.pcx"
 
-void V_ScreenShot(char *format);
+void V_ScreenShot(const char *format);
 
 // Load the lookup table for translucency calculations from the TINTTAB
 // lump.

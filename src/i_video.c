@@ -49,6 +49,9 @@
 #include "w_wad.h"
 #include "z_zone.h"
 
+int hires = 1;
+int SCREENWIDTH, SCREENHEIGHT, SCREENHEIGHT_4_3;
+
 // These are (1) the window (or the full screen) that our game is rendered to
 // and (2) the renderer that scales the texture (see below) into this window.
 
@@ -67,7 +70,7 @@ static char *window_title = "";
 // in turn is finally rendered to screen using "linear" scaling.
 
 //static SDL_Surface *screenbuffer = NULL;
-static SDL_Surface *rgbabuffer = NULL;
+static SDL_Surface *argbbuffer = NULL;
 static SDL_Texture *texture = NULL;
 static SDL_Texture *texture_upscaled = NULL;
 
@@ -81,8 +84,8 @@ static int pane_alpha;
 static SDL_Rect blit_rect = {
     0,
     0,
-    SCREENWIDTH,
-    SCREENHEIGHT
+    MAXWIDTH,
+    MAXHEIGHT
 };
 */
 
@@ -122,8 +125,8 @@ int video_display = 0;
 
 // Screen width and height, from configuration file.
 
-int window_width = SCREENWIDTH; // hires
-int window_height = SCREENHEIGHT_4_3; // hires
+int window_width = MAXWIDTH; // hires
+int window_height = MAXHEIGHT_4_3; // hires
 
 // Fullscreen mode, 0x0 for SDL_WINDOW_FULLSCREEN_DESKTOP.
 
@@ -302,15 +305,18 @@ void I_StartFrame (void)
 // ratio consistent with the aspect_ratio_correct variable.
 static void AdjustWindowSize(void)
 {
-    if (window_width * actualheight <= window_height * SCREENWIDTH)
+    if (aspect_ratio_correct || integer_scaling)
     {
-        // We round up window_height if the ratio is not exact; this leaves
-        // the result stable.
-        window_height = (window_width * actualheight + SCREENWIDTH - 1) / SCREENWIDTH;
-    }
-    else
-    {
-        window_width = window_height * SCREENWIDTH / actualheight;
+        if (window_width * actualheight <= window_height * SCREENWIDTH)
+        {
+            // We round up window_height if the ratio is not exact; this leaves
+            // the result stable.
+            window_height = (window_width * actualheight + SCREENWIDTH - 1) / SCREENWIDTH;
+        }
+        else
+        {
+            window_width = window_height * SCREENWIDTH / actualheight;
+        }
     }
 }
 
@@ -690,7 +696,6 @@ static void CreateUpscaledTexture(boolean force)
                                 h_upscale*SCREENHEIGHT);
 }
 
-// [crispy]
 //
 // I_FinishUpdate
 //
@@ -800,12 +805,12 @@ void I_FinishUpdate (void)
     // Blit from the paletted 8-bit screen buffer to the intermediate
     // 32-bit RGBA buffer that we can load into the texture.
 
-    SDL_LowerBlit(screenbuffer, &blit_rect, rgbabuffer, &blit_rect);
+    SDL_LowerBlit(screenbuffer, &blit_rect, argbbuffer, &blit_rect);
 #endif
 
     // Update the intermediate texture with the contents of the RGBA buffer.
 
-    SDL_UpdateTexture(texture, NULL, rgbabuffer->pixels, rgbabuffer->pitch);
+    SDL_UpdateTexture(texture, NULL, argbbuffer->pixels, argbbuffer->pitch);
 
     // Make sure the pillarboxes are kept clear each frame.
 
@@ -857,6 +862,8 @@ void I_ReadScreen (pixel_t* scr)
 //
 // I_SetPalette
 //
+// [crispy] intermediate gamma levels
+byte **gamma2table = NULL;
 void I_SetDoomPalette (byte *doompalette)
 {
     int i;
@@ -866,9 +873,10 @@ void I_SetDoomPalette (byte *doompalette)
         // Zero out the bottom two bits of each channel - the PC VGA
         // controller only supports 6 bits of accuracy.
 
-        palette[i].r = gammatable[usegamma][*doompalette++] & ~3;
-        palette[i].g = gammatable[usegamma][*doompalette++] & ~3;
-        palette[i].b = gammatable[usegamma][*doompalette++] & ~3;
+        // [crispy] intermediate gamma levels
+        palette[i].r = gamma2table[usegamma][*doompalette++] & ~3;
+        palette[i].g = gamma2table[usegamma][*doompalette++] & ~3;
+        palette[i].b = gamma2table[usegamma][*doompalette++] & ~3;
     }
 
     palette_to_set = true;
@@ -1328,9 +1336,12 @@ void SetVideoMode(void) // [crispy] un-static
     // time this also defines the aspect ratio that is preserved while scaling
     // and stretching the texture into the window.
 
-    SDL_RenderSetLogicalSize(renderer,
-                             SCREENWIDTH,
-                             actualheight);
+    if (aspect_ratio_correct || integer_scaling)
+    {
+        SDL_RenderSetLogicalSize(renderer,
+                                 SCREENWIDTH,
+                                 actualheight);
+    }
 
     // Force integer scales for resolution-independent rendering.
 
@@ -1357,29 +1368,29 @@ void SetVideoMode(void) // [crispy] un-static
     }
 #endif
 
-    // Format of rgbabuffer must match the screen pixel format because we
+    // Format of argbbuffer must match the screen pixel format because we
     // import the surface data into the texture.
-    if (rgbabuffer == NULL)
+    if (argbbuffer == NULL)
     {
         SDL_PixelFormatEnumToMasks(pixel_format, &unused_bpp,
                                    &rmask, &gmask, &bmask, &amask);
-        rgbabuffer = SDL_CreateRGBSurface(0,
+        argbbuffer = SDL_CreateRGBSurface(0,
                                           SCREENWIDTH, SCREENHEIGHT, 32,
                                           rmask, gmask, bmask, amask);
 
-        SDL_FillRect(rgbabuffer, NULL, I_MapRGB(0xff, 0x0, 0x0));
-        redpane = SDL_CreateTextureFromSurface(renderer, rgbabuffer);
+        SDL_FillRect(argbbuffer, NULL, I_MapRGB(0xff, 0x0, 0x0));
+        redpane = SDL_CreateTextureFromSurface(renderer, argbbuffer);
         SDL_SetTextureBlendMode(redpane, SDL_BLENDMODE_BLEND);
 
-        SDL_FillRect(rgbabuffer, NULL, I_MapRGB(0xd7, 0xba, 0x45));
-        yelpane = SDL_CreateTextureFromSurface(renderer, rgbabuffer);
+        SDL_FillRect(argbbuffer, NULL, I_MapRGB(0xd7, 0xba, 0x45));
+        yelpane = SDL_CreateTextureFromSurface(renderer, argbbuffer);
         SDL_SetTextureBlendMode(yelpane, SDL_BLENDMODE_BLEND);
 
-        SDL_FillRect(rgbabuffer, NULL, I_MapRGB(0x0, 0xff, 0x0));
-        grnpane = SDL_CreateTextureFromSurface(renderer, rgbabuffer);
+        SDL_FillRect(argbbuffer, NULL, I_MapRGB(0x0, 0xff, 0x0));
+        grnpane = SDL_CreateTextureFromSurface(renderer, argbbuffer);
         SDL_SetTextureBlendMode(grnpane, SDL_BLENDMODE_BLEND);
 
-        SDL_FillRect(rgbabuffer, NULL, 0);
+        SDL_FillRect(argbbuffer, NULL, 0);
     }
 
     if (texture != NULL)
@@ -1405,30 +1416,6 @@ void SetVideoMode(void) // [crispy] un-static
     // Initially create the upscaled texture for rendering to screen
 
     CreateUpscaledTexture(true);
-}
-
-static const char *hw_emu_warning = 
-"===========================================================================\n"
-"WARNING: it looks like you are using a software GL implementation.\n"
-"To improve performance, try setting force_software_renderer in your\n"
-"configuration file.\n"
-"===========================================================================\n";
-
-static void CheckGLVersion(void)
-{
-    const char * version;
-    typedef const GLubyte* (APIENTRY * glStringFn_t)(GLenum);
-    glStringFn_t glfp = (glStringFn_t)SDL_GL_GetProcAddress("glGetString");
-
-    if (glfp)
-    {
-        version = (const char *)glfp(GL_VERSION);
-
-        if (version && strstr(version, "Mesa"))
-        {
-            printf("%s", hw_emu_warning);
-        }
-    }
 }
 
 void I_InitGraphics(void)
@@ -1468,6 +1455,25 @@ void I_InitGraphics(void)
         fullscreen = true;
     }
 
+    // [crispy] run-time variable high-resolution rendering
+    if ((hires = crispy->hires))
+    {
+        SCREENWIDTH = MAXWIDTH;
+        SCREENHEIGHT = MAXHEIGHT;
+        SCREENHEIGHT_4_3 = MAXHEIGHT_4_3;
+    }
+    else
+    {
+        SCREENWIDTH = ORIGWIDTH;
+        SCREENHEIGHT = ORIGHEIGHT;
+        SCREENHEIGHT_4_3 = ORIGHEIGHT_4_3;
+    }
+//  blit_rect.w = SCREENWIDTH;
+//  blit_rect.h = SCREENHEIGHT;
+
+    // [crispy] (re-)initialize resolution-agnostic patch drawing
+    V_Init();
+
     if (aspect_ratio_correct)
     {
         actualheight = SCREENHEIGHT_4_3;
@@ -1481,10 +1487,6 @@ void I_InitGraphics(void)
     // on configuration.
     AdjustWindowSize();
     SetVideoMode();
-
-    // We might have poor performance if we are using an emulated
-    // HW accelerator. Check for Mesa and warn if we're using it.
-    CheckGLVersion();
 
 #if 0
     // Start with a clear black screen
@@ -1523,7 +1525,7 @@ void I_InitGraphics(void)
 #if 0
     I_VideoBuffer = screenbuffer->pixels;
 #else
-    I_VideoBuffer = rgbabuffer->pixels;
+    I_VideoBuffer = argbbuffer->pixels;
 #endif
     V_RestoreBuffer();
 
@@ -1553,18 +1555,35 @@ void I_RenderReadPixels(byte **data, int *w, int *h, int *p)
 	// [crispy] adjust cropping rectangle if necessary
 	rect.x = rect.y = 0;
 	SDL_GetRendererOutputSize(renderer, &rect.w, &rect.h);
-	if (rect.w * actualheight > rect.h * SCREENWIDTH)
+	if (aspect_ratio_correct || integer_scaling)
 	{
-		temp = rect.w;
-		rect.w = rect.h * SCREENWIDTH / actualheight;
-		rect.x = (temp - rect.w) / 2;
-	}
-	else
-	if (rect.h * SCREENWIDTH > rect.w * actualheight)
-	{
-		temp = rect.h;
-		rect.h = rect.w * actualheight / SCREENWIDTH;
-		rect.y = (temp - rect.h) / 2;
+		if (integer_scaling)
+		{
+			int temp1, temp2, scale;
+			temp1 = rect.w;
+			temp2 = rect.h;
+			scale = MIN(rect.w / SCREENWIDTH, rect.h / actualheight);
+
+			rect.w = SCREENWIDTH * scale;
+			rect.h = actualheight * scale;
+
+			rect.x = (temp1 - rect.w) / 2;
+			rect.y = (temp2 - rect.h) / 2;
+		}
+		else
+		if (rect.w * actualheight > rect.h * SCREENWIDTH)
+		{
+			temp = rect.w;
+			rect.w = rect.h * SCREENWIDTH / actualheight;
+			rect.x = (temp - rect.w) / 2;
+		}
+		else
+		if (rect.h * SCREENWIDTH > rect.w * actualheight)
+		{
+			temp = rect.h;
+			rect.h = rect.w * actualheight / SCREENWIDTH;
+			rect.y = (temp - rect.h) / 2;
+		}
 	}
 
 	// [crispy] native PNG pixel format
@@ -1651,6 +1670,6 @@ const pixel_t I_MapRGB (const uint8_t r, const uint8_t g, const uint8_t b)
 	        (((g * gmask) >> 8) & gmask) |
 	        (((b * bmask) >> 8) & bmask);
 */
-	return SDL_MapRGB(rgbabuffer->format, r, g, b);
+	return SDL_MapRGB(argbbuffer->format, r, g, b);
 }
 

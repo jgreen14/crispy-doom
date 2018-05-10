@@ -185,7 +185,7 @@ static void *saveg_readp(void)
     return (void *) (intptr_t) saveg_read32();
 }
 
-static void saveg_writep(void *p)
+static void saveg_writep(const void *p)
 {
     saveg_write32((intptr_t) p);
 }
@@ -295,18 +295,6 @@ static void saveg_write_thinker_t(thinker_t *str)
 //
 // mobj_t
 //
-
-// [crispy] encode sprite flipping in thing health value
-static inline boolean crispy_flippablesprite (mobj_t *thing)
-{
-	return ((thing->flags & MF_CORPSE &&
-	        thing->type != MT_CYBORG &&
-	        thing->type != MT_BARREL) ||
-	        thing->type == MT_BLOOD ||
-	        thing->type == MT_PUFF ||
-	        mobjinfo[thing->type].spawnstate == S_PLAY_DIE7 ||
-	        mobjinfo[thing->type].spawnstate == S_PLAY_XDIE9);
-}
 
 static void saveg_read_mobj_t(mobj_t *str)
 {
@@ -426,9 +414,6 @@ static void saveg_read_mobj_t(mobj_t *str)
 
     // struct mobj_s* tracer;
     str->tracer = saveg_readp();
-
-    // [crispy] encode sprite flipping in thing health value
-    str->flipsprite = crispy_flippablesprite(str) && (str->health & 1);
 }
 
 // [crispy] enumerate all thinker pointers
@@ -554,14 +539,6 @@ static void saveg_write_mobj_t(mobj_t *str)
     // int flags;
     saveg_write32(str->flags);
 
-    // [crispy] encode sprite flipping in thing health value
-    if (crispy_flippablesprite(str))
-    {
-        if ((str->health & 1) ^ str->flipsprite)
-        {
-            str->health--;
-        }
-    }
     // int health;
     saveg_write32(str->health);
 
@@ -1611,15 +1588,27 @@ void P_UnArchiveWorld (void)
     // do sectors
     for (i=0, sec = sectors ; i<numsectors ; i++,sec++)
     {
+	// [crispy] add overflow guard for the flattranslation[] array
+	short floorpic, ceilingpic;
+	extern int numflats;
 	sec->floorheight = saveg_read16() << FRACBITS;
 	sec->ceilingheight = saveg_read16() << FRACBITS;
-	sec->floorpic = saveg_read16();
-	sec->ceilingpic = saveg_read16();
+	floorpic = saveg_read16();
+	ceilingpic = saveg_read16();
 	sec->lightlevel = saveg_read16();
 	sec->special = saveg_read16();		// needed?
 	sec->tag = saveg_read16();		// needed?
 	sec->specialdata = 0;
 	sec->soundtarget = 0;
+	// [crispy] add overflow guard for the flattranslation[] array
+	if (floorpic >= 0 && floorpic < numflats)
+	{
+	    sec->floorpic = floorpic;
+	}
+	if (ceilingpic >= 0 && ceilingpic < numflats)
+	{
+	    sec->ceilingpic = ceilingpic;
+	}
     }
     
     // do lines
@@ -1729,8 +1718,9 @@ void P_UnArchiveThinkers (void)
             //mobj->tracer = NULL;
 	    P_SetThingPosition (mobj);
 	    mobj->info = &mobjinfo[mobj->type];
-	    mobj->floorz = mobj->subsector->sector->floorheight;
-	    mobj->ceilingz = mobj->subsector->sector->ceilingheight;
+	    // [crispy] killough 2/28/98: Fix for falling down into a wall after savegame loaded
+//	    mobj->floorz = mobj->subsector->sector->floorheight;
+//	    mobj->ceilingz = mobj->subsector->sector->ceilingheight;
 	    mobj->thinker.function.acp1 = (actionf_p1)P_MobjThinker;
 	    P_AddThinker (&mobj->thinker);
 	    break;

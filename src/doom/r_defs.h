@@ -475,21 +475,14 @@ typedef struct
   unsigned int		pad1; // [crispy] hires / 32-bit integer math
   // Here lies the rub for all
   //  dynamic resize/change of resolution.
-  unsigned int		top[SCREENWIDTH]; // [crispy] hires / 32-bit integer math
+  unsigned int		top[MAXWIDTH]; // [crispy] hires / 32-bit integer math
   unsigned int		pad2; // [crispy] hires / 32-bit integer math
   unsigned int		pad3; // [crispy] hires / 32-bit integer math
   // See above.
-  unsigned int		bottom[SCREENWIDTH]; // [crispy] hires / 32-bit integer math
+  unsigned int		bottom[MAXWIDTH]; // [crispy] hires / 32-bit integer math
   unsigned int		pad4; // [crispy] hires / 32-bit integer math
 
 } visplane_t;
-
-
-// [crispy] map-coordinates of the laser vision spot
-typedef struct
-{
-    fixed_t x, y, z;
-} laserspot_t;
 
 typedef struct
 {
@@ -498,5 +491,7 @@ typedef struct
 	int l, w, h;
 } laserpatch_t;
 extern laserpatch_t *laserpatch;
+
+
 
 #endif

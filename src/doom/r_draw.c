@@ -39,8 +39,8 @@
 
 
 // ?
-#define MAXWIDTH			1120
-#define MAXHEIGHT			832
+//#define MAXWIDTH			1120
+//#define MAXHEIGHT			832
 
 // status bar height at bottom of screen
 #define SBARHEIGHT		(32 << hires)
@@ -59,7 +59,6 @@ byte*		viewimage;
 int		viewwidth;
 int		scaledviewwidth;
 int		viewheight;
-int		scaledviewheight;
 int		viewwindowx;
 int		viewwindowy; 
 pixel_t*		ylookup[MAXHEIGHT];
@@ -246,8 +245,6 @@ void R_DrawColumnLow (void)
     int			count; 
     pixel_t*		dest; 
     pixel_t*		dest2;
-    pixel_t*		dest3;
-    pixel_t*		dest4;
     fixed_t		frac;
     fixed_t		fracstep;	 
     int                 x;
@@ -272,10 +269,8 @@ void R_DrawColumnLow (void)
     // Blocky mode, need to multiply by 2.
     x = dc_x << 1;
     
-    dest = ylookup[(dc_yl << hires)] + columnofs[x];
-    dest2 = ylookup[(dc_yl << hires)] + columnofs[x+1];
-    dest3 = ylookup[(dc_yl << hires) + 1] + columnofs[x];
-    dest4 = ylookup[(dc_yl << hires) + 1] + columnofs[x+1];
+    dest = ylookup[dc_yl] + columnofs[x];
+    dest2 = ylookup[dc_yl] + columnofs[x+1];
     
     fracstep = dc_iscale; 
     frac = dc_texturemid + (dc_yl-centery)*fracstep;
@@ -298,14 +293,9 @@ void R_DrawColumnLow (void)
 	const byte source = dc_source[frac>>FRACBITS];
 	*dest2 = *dest = dc_colormap[dc_brightmap[source]][source];
 
-	dest += SCREENWIDTH << hires;
-	dest2 += SCREENWIDTH << hires;
-	if (hires)
-	{
-	    *dest4 = *dest3 = dc_colormap[dc_brightmap[source]][source];
-	    dest3 += SCREENWIDTH << hires;
-	    dest4 += SCREENWIDTH << hires;
-	}
+	dest += SCREENWIDTH;
+	dest2 += SCREENWIDTH;
+
 	if ((frac += fracstep) >= heightmask)
 	    frac -= heightmask;
     } while (count--);
@@ -318,14 +308,8 @@ void R_DrawColumnLow (void)
 	// [crispy] brightmaps
 	const byte source = dc_source[(frac>>FRACBITS)&heightmask];
 	*dest2 = *dest = dc_colormap[dc_brightmap[source]][source];
-	dest += SCREENWIDTH << hires;
-	dest2 += SCREENWIDTH << hires;
-	if (hires)
-	{
-	    *dest4 = *dest3 = dc_colormap[dc_brightmap[source]][source];
-	    dest3 += SCREENWIDTH << hires;
-	    dest4 += SCREENWIDTH << hires;
-	}
+	dest += SCREENWIDTH;
+	dest2 += SCREENWIDTH;
 
 	frac += fracstep; 
 
@@ -338,7 +322,7 @@ void R_DrawColumnLow (void)
 // Spectre/Invisibility.
 //
 #define FUZZTABLE		50 
-#define FUZZOFF	(SCREENWIDTH)
+#define FUZZOFF	(1)
 
 
 int	fuzzoffset[FUZZTABLE] =
@@ -438,8 +422,6 @@ void R_DrawFuzzColumnLow (void)
     int			count; 
     pixel_t*		dest; 
     pixel_t*		dest2; 
-    pixel_t*		dest3;
-    pixel_t*		dest4;
     fixed_t		frac;
     fixed_t		fracstep;	 
     int x;
@@ -475,10 +457,8 @@ void R_DrawFuzzColumnLow (void)
     }
 #endif
     
-    dest = ylookup[(dc_yl << hires)] + columnofs[x];
-    dest2 = ylookup[(dc_yl << hires)] + columnofs[x+1];
-    dest3 = ylookup[(dc_yl << hires) + 1] + columnofs[x];
-    dest4 = ylookup[(dc_yl << hires) + 1] + columnofs[x+1];
+    dest = ylookup[dc_yl] + columnofs[x];
+    dest2 = ylookup[dc_yl] + columnofs[x+1];
 
     // Looks familiar.
     fracstep = dc_iscale; 
@@ -495,20 +475,13 @@ void R_DrawFuzzColumnLow (void)
 	// Add index from colormap to index.
 	*dest = I_BlendDark(dest[fuzzoffset[fuzzpos]], 0xff>>2); 
 	*dest2 = I_BlendDark(dest2[fuzzoffset[fuzzpos]], 0xff>>2); 
-	if (hires)
-	{
-	    *dest3 = I_BlendDark(dest3[fuzzoffset[fuzzpos]], 0xff>>2); 
-	    *dest4 = I_BlendDark(dest4[fuzzoffset[fuzzpos]], 0xff>>2); 
-	    dest3 += SCREENWIDTH << hires;
-	    dest4 += SCREENWIDTH << hires;
-	}
 
 	// Clamp table lookup index.
 	if (++fuzzpos == FUZZTABLE) 
 	    fuzzpos = 0;
 	
-	dest += SCREENWIDTH << hires;
-	dest2 += SCREENWIDTH << hires;
+	dest += SCREENWIDTH;
+	dest2 += SCREENWIDTH;
 
 	frac += fracstep; 
     } while (count--); 
@@ -519,11 +492,6 @@ void R_DrawFuzzColumnLow (void)
     {
 	*dest = I_BlendDark(dest[(fuzzoffset[fuzzpos]-FUZZOFF)/2], 0xff>>2);
 	*dest2 = I_BlendDark(dest2[(fuzzoffset[fuzzpos]-FUZZOFF)/2], 0xff>>2);
-	if (hires)
-	{
-	    *dest3 = *dest;
-	    *dest4 = *dest2;
-	}
     }
 } 
  
@@ -592,8 +560,6 @@ void R_DrawTranslatedColumnLow (void)
     int			count; 
     pixel_t*		dest; 
     pixel_t*		dest2; 
-    pixel_t*		dest3;
-    pixel_t*		dest4;
     fixed_t		frac;
     fixed_t		fracstep;	 
     int                 x;
@@ -617,10 +583,8 @@ void R_DrawTranslatedColumnLow (void)
 #endif 
 
 
-    dest = ylookup[(dc_yl << hires)] + columnofs[x];
-    dest2 = ylookup[(dc_yl << hires)] + columnofs[x+1];
-    dest3 = ylookup[(dc_yl << hires) + 1] + columnofs[x];
-    dest4 = ylookup[(dc_yl << hires) + 1] + columnofs[x+1];
+    dest = ylookup[dc_yl] + columnofs[x];
+    dest2 = ylookup[dc_yl] + columnofs[x+1];
 
     // Looks familiar.
     fracstep = dc_iscale; 
@@ -636,15 +600,8 @@ void R_DrawTranslatedColumnLow (void)
 	//  is mapped to gray, red, black/indigo. 
 	*dest = dc_colormap[0][dc_translation[dc_source[frac>>FRACBITS]]];
 	*dest2 = dc_colormap[0][dc_translation[dc_source[frac>>FRACBITS]]];
-	dest += SCREENWIDTH << hires;
-	dest2 += SCREENWIDTH << hires;
-	if (hires)
-	{
-	    *dest3 = dc_colormap[0][dc_translation[dc_source[frac>>FRACBITS]]];
-	    *dest4 = dc_colormap[0][dc_translation[dc_source[frac>>FRACBITS]]];
-	    dest3 += SCREENWIDTH << hires;
-	    dest4 += SCREENWIDTH << hires;
-	}
+	dest += SCREENWIDTH;
+	dest2 += SCREENWIDTH;
 	
 	frac += fracstep; 
     } while (count--); 
@@ -695,8 +652,6 @@ void R_DrawTLColumnLow (void)
     int			count;
     pixel_t*		dest, destrgb;
     pixel_t*		dest2;
-    pixel_t*		dest3;
-    pixel_t*		dest4;
     fixed_t		frac;
     fixed_t		fracstep;
     int                 x;
@@ -717,10 +672,8 @@ void R_DrawTLColumnLow (void)
     }
 #endif
 
-    dest = ylookup[(dc_yl << hires)] + columnofs[x];
-    dest2 = ylookup[(dc_yl << hires)] + columnofs[x+1];
-    dest3 = ylookup[(dc_yl << hires) + 1] + columnofs[x];
-    dest4 = ylookup[(dc_yl << hires) + 1] + columnofs[x+1];
+    dest = ylookup[dc_yl] + columnofs[x];
+    dest2 = ylookup[dc_yl] + columnofs[x+1];
 
     fracstep = dc_iscale;
     frac = dc_texturemid + (dc_yl-centery)*fracstep;
@@ -730,15 +683,8 @@ void R_DrawTLColumnLow (void)
 	destrgb = dc_colormap[0][dc_source[frac>>FRACBITS]];
 	*dest = blendfunc(*dest, destrgb);
 	*dest2 = blendfunc(*dest2, destrgb);
-	dest += SCREENWIDTH << hires;
-	dest2 += SCREENWIDTH << hires;
-	if (hires)
-	{
-	    *dest3 = blendfunc(*dest3, destrgb);
-	    *dest4 = blendfunc(*dest4, destrgb);
-	    dest3 += SCREENWIDTH << hires;
-	    dest4 += SCREENWIDTH << hires;
-	}
+	dest += SCREENWIDTH;
+	dest2 += SCREENWIDTH;
 
 	frac += fracstep;
     } while (count--);
@@ -952,7 +898,7 @@ void R_DrawSpanLow (void)
 {
 //  unsigned int position, step;
     unsigned int xtemp, ytemp;
-    pixel_t *dest, *dest2;
+    pixel_t *dest;
     int count;
     int spot;
 
@@ -981,8 +927,7 @@ void R_DrawSpanLow (void)
     ds_x1 <<= 1;
     ds_x2 <<= 1;
 
-    dest = ylookup[(ds_y << hires)] + columnofs[ds_x1];
-    dest2 = ylookup[(ds_y << hires) + 1] + columnofs[ds_x1];
+    dest = ylookup[ds_y] + columnofs[ds_x1];
 
     do
     {
@@ -998,11 +943,6 @@ void R_DrawSpanLow (void)
 	source = ds_source[spot];
 	*dest++ = ds_colormap[ds_brightmap[source]][source];
 	*dest++ = ds_colormap[ds_brightmap[source]][source];
-	if (hires)
-	{
-	    *dest2++ = ds_colormap[ds_brightmap[source]][source];
-	    *dest2++ = ds_colormap[ds_brightmap[source]][source];
-	}
 
 //	position += step;
 	ds_xfrac += ds_xstep;
@@ -1064,12 +1004,12 @@ void R_FillBackScreen (void)
     patch_t*	patch;
 
     // DOOM border patch.
-    char       *name1 = DEH_String("FLOOR7_2");
+    const char *name1 = DEH_String("FLOOR7_2");
 
     // DOOM II border patch.
-    char *name2 = DEH_String("GRNROCK");
+    const char *name2 = DEH_String("GRNROCK");
 
-    char *name;
+    const char *name;
 
     // If we are running full screen, there is no need to do any of this,
     // and the background buffer can be freed if it was previously in use.
@@ -1133,14 +1073,14 @@ void R_FillBackScreen (void)
     patch = W_CacheLumpName(DEH_String("brdr_b"),PU_CACHE);
 
     for (x=0 ; x<(scaledviewwidth >> hires) ; x+=8)
-	V_DrawPatch((viewwindowx >> hires)+x, (viewwindowy >> hires)+(scaledviewheight >> hires), patch);
+	V_DrawPatch((viewwindowx >> hires)+x, (viewwindowy >> hires)+(viewheight >> hires), patch);
     patch = W_CacheLumpName(DEH_String("brdr_l"),PU_CACHE);
 
-    for (y=0 ; y<(scaledviewheight >> hires) ; y+=8)
+    for (y=0 ; y<(viewheight >> hires) ; y+=8)
 	V_DrawPatch((viewwindowx >> hires)-8, (viewwindowy >> hires)+y, patch);
     patch = W_CacheLumpName(DEH_String("brdr_r"),PU_CACHE);
 
-    for (y=0 ; y<(scaledviewheight >> hires); y+=8)
+    for (y=0 ; y<(viewheight >> hires) ; y+=8)
 	V_DrawPatch((viewwindowx >> hires)+(scaledviewwidth >> hires), (viewwindowy >> hires)+y, patch);
 
     // Draw beveled edge. 
@@ -1153,11 +1093,11 @@ void R_FillBackScreen (void)
                 W_CacheLumpName(DEH_String("brdr_tr"),PU_CACHE));
     
     V_DrawPatch((viewwindowx >> hires)-8,
-                (viewwindowy >> hires)+(scaledviewheight >> hires),
+                (viewwindowy >> hires)+(viewheight >> hires),
                 W_CacheLumpName(DEH_String("brdr_bl"),PU_CACHE));
     
     V_DrawPatch((viewwindowx >> hires)+(scaledviewwidth >> hires),
-                (viewwindowy >> hires)+(scaledviewheight >> hires),
+                (viewwindowy >> hires)+(viewheight >> hires),
                 W_CacheLumpName(DEH_String("brdr_br"),PU_CACHE));
 
     V_RestoreBuffer();
@@ -1200,21 +1140,21 @@ void R_DrawViewBorder (void)
     if (scaledviewwidth == SCREENWIDTH) 
 	return; 
   
-    top = ((SCREENHEIGHT-SBARHEIGHT)-scaledviewheight)/2;
+    top = ((SCREENHEIGHT-SBARHEIGHT)-viewheight)/2;
     side = (SCREENWIDTH-scaledviewwidth)/2; 
  
     // copy top and one line of left side 
     R_VideoErase (0, top*SCREENWIDTH+side); 
  
     // copy one line of right side and bottom 
-    ofs = (scaledviewheight+top)*SCREENWIDTH-side;
+    ofs = (viewheight+top)*SCREENWIDTH-side;
     R_VideoErase (ofs, top*SCREENWIDTH+side); 
  
     // copy sides using wraparound 
     ofs = top*SCREENWIDTH + SCREENWIDTH-side; 
     side <<= 1;
     
-    for (i=1 ; i<scaledviewheight ; i++)
+    for (i=1 ; i<viewheight ; i++)
     { 
 	R_VideoErase (ofs, side); 
 	ofs += SCREENWIDTH; 

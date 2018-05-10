@@ -42,6 +42,8 @@ typedef struct
 	int coloredblood;
 	int coloredhud;
 	int crosshair;
+	int crosshairhealth;
+	int crosshairtarget;
 	int crosshairtype;
 	int demotimer;
 	int demotimerdir;
@@ -51,6 +53,7 @@ typedef struct
 	int flipcorpses;
 	int freeaim;
 	int freelook;
+	int hires;
 	int jump;
 	int mouselook;
 	int neghealth;
@@ -58,9 +61,12 @@ typedef struct
 	int pitch;
 	int recoil;
 	int secretmessage;
+	int smoothlight;
 	int smoothscaling;
+	int sndchannels;
 	int soundfix;
 	int soundfull;
+	int soundmono;
 	int translucency;
 	int uncapped;
 	int weaponsquat;
@@ -106,16 +112,6 @@ enum
     CENTERWEAPON_BOB,
     CENTERWEAPON_BOB2,
     NUM_CENTERWEAPON,
-};
-
-enum
-{
-    COLOREDBLOOD_OFF,
-    COLOREDBLOOD_BLOOD,
-    COLOREDBLOOD_CORPSE,
-    COLOREDBLOOD_BOTH,
-    NUM_COLOREDBLOOD,
-    COLOREDBLOOD_FIX = 0x10
 };
 
 enum
@@ -171,10 +167,10 @@ enum
 
 enum
 {
-    NEGHEALTH_OFF,
-    NEGHEALTH_DM,
-    NEGHEALTH_ON,
-    NUM_NEGHEALTHS
+    SNDCHANNELS_8,
+    SNDCHANNELS_16,
+    SNDCHANNELS_32,
+    NUM_SNDCHANNELS
 };
 
 enum

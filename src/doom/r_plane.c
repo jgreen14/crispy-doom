@@ -51,7 +51,7 @@ visplane_t*		ceilingplane;
 static int		numvisplanes;
 
 // ?
-#define MAXOPENINGS	SCREENWIDTH*64*4
+#define MAXOPENINGS	MAXWIDTH*64*4
 int			openings[MAXOPENINGS]; // [crispy] 32-bit integer math
 int*			lastopening; // [crispy] 32-bit integer math
 
@@ -61,15 +61,15 @@ int*			lastopening; // [crispy] 32-bit integer math
 //  floorclip starts out SCREENHEIGHT
 //  ceilingclip starts out -1
 //
-int			floorclip[SCREENWIDTH]; // [crispy] 32-bit integer math
-int			ceilingclip[SCREENWIDTH]; // [crispy] 32-bit integer math
+int			floorclip[MAXWIDTH]; // [crispy] 32-bit integer math
+int			ceilingclip[MAXWIDTH]; // [crispy] 32-bit integer math
 
 //
 // spanstart holds the start of a plane span
 // initialized to 0 at start
 //
-int			spanstart[SCREENHEIGHT];
-int			spanstop[SCREENHEIGHT];
+int			spanstart[MAXHEIGHT];
+int			spanstop[MAXHEIGHT];
 
 //
 // texture mapping
@@ -78,15 +78,15 @@ lighttable_t**		planezlight;
 fixed_t			planeheight;
 
 fixed_t*			yslope;
-fixed_t			yslopes[LOOKDIRS][SCREENHEIGHT];
-fixed_t			distscale[SCREENWIDTH];
+fixed_t			yslopes[LOOKDIRS][MAXHEIGHT];
+fixed_t			distscale[MAXWIDTH];
 fixed_t			basexscale;
 fixed_t			baseyscale;
 
-fixed_t			cachedheight[SCREENHEIGHT];
-fixed_t			cacheddistance[SCREENHEIGHT];
-fixed_t			cachedxstep[SCREENHEIGHT];
-fixed_t			cachedystep[SCREENHEIGHT];
+fixed_t			cachedheight[MAXHEIGHT];
+fixed_t			cacheddistance[MAXHEIGHT];
+fixed_t			cachedxstep[MAXHEIGHT];
+fixed_t			cachedystep[MAXHEIGHT];
 
 
 
@@ -148,8 +148,8 @@ R_MapPlane
     {
 	cachedheight[y] = planeheight;
 	distance = cacheddistance[y] = FixedMul (planeheight, yslope[y]);
-	ds_xstep = cachedxstep[y] = FixedMul (viewsin, planeheight) / dy;
-	ds_ystep = cachedystep[y] = FixedMul (viewcos, planeheight) / dy;
+	ds_xstep = cachedxstep[y] = (FixedMul (viewsin, planeheight) / dy) << detailshift;
+	ds_ystep = cachedystep[y] = (FixedMul (viewcos, planeheight) / dy) << detailshift;
     }
     else
     {
@@ -457,17 +457,6 @@ static char *R_DistortedFlat (int flatnum)
     return distortedflat;
 }
 
-// [crispy] overflow guard for the flattranslation[] array
-static inline int R_FlatTranslation (unsigned int picnum)
-{
-	extern int numflats;
-
-	return (picnum < numflats) ? flattranslation[picnum] :
-	       (firstflat + picnum < numlumps) ? picnum :
-	       // [crispy] the most reasonable safe default,
-	       // it's already too late to return "skyflatnum" at this point
-	       0;
-}
 
 //
 // R_DrawPlanes
@@ -484,21 +473,21 @@ void R_DrawPlanes (void)
 				
 #ifdef RANGECHECK
     if (ds_p - drawsegs > numdrawsegs)
-	I_Error ("R_DrawPlanes: drawsegs overflow (%i)",
+	I_Error ("R_DrawPlanes: drawsegs overflow (%" PRIiPTR ")",
 		 ds_p - drawsegs);
     
     if (lastvisplane - visplanes > numvisplanes)
-	I_Error ("R_DrawPlanes: visplane overflow (%i)",
+	I_Error ("R_DrawPlanes: visplane overflow (%" PRIiPTR ")",
 		 lastvisplane - visplanes);
     
     if (lastopening - openings > MAXOPENINGS)
-	I_Error ("R_DrawPlanes: opening overflow (%i)",
+	I_Error ("R_DrawPlanes: opening overflow (%" PRIiPTR ")",
 		 lastopening - openings);
 #endif
 
     for (pl = visplanes ; pl < lastvisplane ; pl++)
     {
-	boolean swirling;
+	const boolean swirling = (flattranslation[pl->picnum] == -1);
 
 	if (pl->minx > pl->maxx)
 	    continue;
@@ -530,7 +519,7 @@ void R_DrawPlanes (void)
 		dc_texturemid = skytexturemid;
 		flip = 0;
 	    }
-	    dc_iscale = pspriteiscale>>(detailshift && !hires);
+	    dc_iscale = pspriteiscale>>detailshift;
 	    
 	    // Sky is allways drawn full bright,
 	    //  i.e. colormaps[0] is used.
@@ -559,15 +548,14 @@ void R_DrawPlanes (void)
 	    continue;
 	}
 	
-	swirling = (R_FlatTranslation(pl->picnum) == -1);
 	// regular flat
-        lumpnum = firstflat + (swirling ? pl->picnum : R_FlatTranslation(pl->picnum));
+        lumpnum = firstflat + (swirling ? pl->picnum : flattranslation[pl->picnum]);
 	// [crispy] add support for SMMU swirling flats
 	ds_source = swirling ? R_DistortedFlat(lumpnum) : W_CacheLumpNum(lumpnum, PU_STATIC);
 	ds_brightmap = R_BrightmapForFlatNum(lumpnum-firstflat);
 	
 	planeheight = abs(pl->height-viewz);
-	light = (pl->lightlevel >> LIGHTSEGSHIFT)+extralight;
+	light = (pl->lightlevel >> LIGHTSEGSHIFT)+(extralight * LIGHTBRIGHT);
 
 	if (light >= LIGHTLEVELS)
 	    light = LIGHTLEVELS-1;

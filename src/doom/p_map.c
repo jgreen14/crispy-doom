@@ -633,6 +633,18 @@ boolean P_ThingHeightClip (mobj_t* thing)
     {
 	// walking monsters rise and fall with the floor
 	thing->z = thing->floorz;
+	// [crispy] update player's viewz on sector move
+	if (thing->player)
+	{
+	    player_t *const player = thing->player;
+
+	    player->viewz = player->mo->z + player->viewheight;
+
+	    if (player->viewz > player->mo->ceilingz - 4*FRACUNIT)
+	    {
+		player->viewz = player->mo->ceilingz - 4*FRACUNIT;
+	    }
+	}
     }
     else
     {
@@ -897,7 +909,7 @@ fixed_t		aimslope;
 extern fixed_t	topslope;
 extern fixed_t	bottomslope;	
 
-extern laserspot_t *laserspot;
+extern degenmobj_t *laserspot;
 
 //
 // PTR_AimTraverse
@@ -1084,7 +1096,7 @@ boolean PTR_ShootTraverse (intercept_t* in)
 	// [crispy] check if the pullet puff's z-coordinate is below of above
 	// its spawning sector's floor or ceiling, respectively, and move its
 	// coordinates to the point where the trajectory hits the plane
-	if (shootthing->player)
+	if (aimslope)
 	{
 		const int lineside = P_PointOnLineSide(x, y, li);
 		int side;
@@ -1107,6 +1119,7 @@ boolean PTR_ShootTraverse (intercept_t* in)
 	// [crispy] update laser spot position and return
 	if (la_damage == INT_MIN)
 	{
+	    laserspot->thinker.function.acv = (actionf_v) (1);
 	    laserspot->x = x;
 	    laserspot->y = y;
 	    laserspot->z = z;
@@ -1156,6 +1169,7 @@ boolean PTR_ShootTraverse (intercept_t* in)
 	if (th->flags & MF_SHADOW)
 	    return true;
 
+	laserspot->thinker.function.acv = (actionf_v) (1);
 	laserspot->x = th->x;
 	laserspot->y = th->y;
 	laserspot->z = z;
@@ -1266,7 +1280,13 @@ P_LineLaser
 {
     fixed_t	lslope;
 
-    memset(laserspot, 0, sizeof(*laserspot));
+    laserspot->thinker.function.acv = (actionf_v) (0);
+
+    // [crispy] intercepts overflow guard
+    crispy->crosshair |= CROSSHAIR_INTERCEPT;
+
+    // [crispy] set the linetarget pointer
+    lslope = P_AimLineAttack(t1, angle, distance);
 
     if (critical->freeaim == FREEAIM_DIRECT)
     {
@@ -1274,8 +1294,6 @@ P_LineLaser
     }
     else
     {
-    lslope = P_AimLineAttack(t1, angle, distance);
-
     // [crispy] increase accuracy
     if (!linetarget)
     {
@@ -1298,12 +1316,18 @@ P_LineLaser
     }
     }
 
-    // [crispy] don't aim at Spectres
-    if (linetarget && !(linetarget->flags & MF_SHADOW) && (crispy->freeaim != FREEAIM_DIRECT))
-	P_LineAttack(t1, angle, distance, aimslope, INT_MIN);
-    else
-	// [crispy] double the auto aim distance
-	P_LineAttack(t1, angle, 2*distance, lslope, INT_MIN);
+    if ((crispy->crosshair & ~CROSSHAIR_INTERCEPT) == CROSSHAIR_PROJECTED)
+    {
+	// [crispy] don't aim at Spectres
+	if (linetarget && !(linetarget->flags & MF_SHADOW) && (crispy->freeaim != FREEAIM_DIRECT))
+		P_LineAttack(t1, angle, distance, aimslope, INT_MIN);
+	else
+		// [crispy] double the auto aim distance
+		P_LineAttack(t1, angle, 2*distance, lslope, INT_MIN);
+    }
+
+    // [crispy] intercepts overflow guard
+    crispy->crosshair &= ~CROSSHAIR_INTERCEPT;
 }
 
 
@@ -1538,11 +1562,8 @@ boolean PIT_ChangeSector (mobj_t*	thing)
 	mo->target = thing;
 
 	// [crispy] Spectres bleed spectre blood
-	if (crispy->coloredblood & COLOREDBLOOD_FIX)
+	if (crispy->coloredblood)
 	    mo->flags |= (thing->flags & MF_SHADOW);
-
-	// [crispy] randomly flip blood sprites
-	mo->flipsprite = Crispy_Random() & 1;
     }
 
     // keep checking (crush other things)	

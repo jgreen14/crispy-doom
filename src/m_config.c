@@ -1772,22 +1772,6 @@ static default_t extra_defaults_list[] =
     //!
     // @game doom
     //
-    // Enable translucency.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_translucency),
-
-    //!
-    // @game doom
-    //
-    // Show colored numbers in the status bar.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_coloredhud),
-
-    //!
-    // @game doom
-    //
     // Show additional level statistics in the automap.
     //
 
@@ -1796,82 +1780,10 @@ static default_t extra_defaults_list[] =
     //!
     // @game doom
     //
-    // Show a centered message and play a sound when a secret is found.
+    // Apply brightmaps to select textures and sprites.
     //
 
-    CONFIG_VARIABLE_INT(crispy_secretmessage),
-
-    //!
-    // @game doom
-    //
-    // Draw a crosshair.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_crosshair),
-
-    //!
-    // @game doom
-    //
-    // Crosshair type.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_crosshairtype),
-
-    //!
-    // @game doom
-    //
-    // Enable jumping.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_jump),
-
-    //!
-    // @game doom
-    //
-    // Enable looking up and down.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_freelook),
-
-    //!
-    // @game doom
-    //
-    // Use the mouse to look up and down.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_mouselook),
-
-    //!
-    // @game doom
-    //
-    // Enable vertical aiming.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_freeaim),
-
-    //!
-    // @game doom
-    //
-    // Players may walk over and under shootable things.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_overunder),
-
-    //!
-    // @game doom
-    //
-    // Enable weapon recoil thrust.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_recoil),
-
-    //!
-    // @game doom
-    //
-    // Enable weapon recoil pitch.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_pitch),
+    CONFIG_VARIABLE_INT(crispy_brightmaps),
 
     //!
     // @game doom
@@ -1892,83 +1804,50 @@ static default_t extra_defaults_list[] =
     //!
     // @game doom
     //
-    // Enable Mirrored Corpses.
+    // Show colored numbers in the status bar.
     //
 
-    CONFIG_VARIABLE_INT(crispy_flipcorpses),
+    CONFIG_VARIABLE_INT(crispy_coloredhud),
 
     //!
     // @game doom
     //
-    // Uncapped Framerate.
+    // Draw a crosshair.
     //
 
-    CONFIG_VARIABLE_INT(crispy_uncapped),
-
+    CONFIG_VARIABLE_INT(crispy_crosshair),
 
     //!
     // @game doom
     //
-    // Smooth Scaling.
+    // Crosshair Color indicates Health.
     //
 
-    CONFIG_VARIABLE_INT(crispy_smoothscaling),
-
-    //!
-    // @game doom
-    //
-    // Misc. sound fixes.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_soundfix),
+    CONFIG_VARIABLE_INT(crispy_crosshairhealth),
 
     //!
     // @game doom
     //
-    // Play sounds in full length.
+    // Highlight Crosshair on target.
     //
 
-    CONFIG_VARIABLE_INT(crispy_soundfull),
-
-    //!
-    // @game doom
-    //
-    // Extended Savegames.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_extsaveg),
+    CONFIG_VARIABLE_INT(crispy_crosshairtarget),
 
     //!
     // @game doom
     //
-    // Negative player health.
+    // Crosshair type.
     //
 
-    CONFIG_VARIABLE_INT(crispy_neghealth),
-
-    //!
-    // @game doom
-    //
-    // Squat down weapon on impact.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_weaponsquat),
+    CONFIG_VARIABLE_INT(crispy_crosshairtype),
 
     //!
     // @game doom
     //
-    // Extended Automap.
+    // Show a progress bar when playing back a demo.
     //
 
-    CONFIG_VARIABLE_INT(crispy_extautomap),
-
-    //!
-    // @game doom
-    //
-    // Apply brightmaps to select textures and sprites.
-    //
-
-    CONFIG_VARIABLE_INT(crispy_brightmaps),
+    CONFIG_VARIABLE_INT(crispy_demobar),
 
     //!
     // @game doom
@@ -1989,10 +1868,178 @@ static default_t extra_defaults_list[] =
     //!
     // @game doom
     //
-    // Show a progress bar when playing back a demo.
+    // Extended Automap.
     //
 
-    CONFIG_VARIABLE_INT(crispy_demobar),
+    CONFIG_VARIABLE_INT(crispy_extautomap),
+
+    //!
+    // @game doom
+    //
+    // Extended Savegames.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_extsaveg),
+
+    //!
+    // @game doom
+    //
+    // Enable Mirrored Corpses.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_flipcorpses),
+
+    //!
+    // @game doom
+    //
+    // Enable vertical aiming.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_freeaim),
+
+    //!
+    // @game doom
+    //
+    // Enable looking up and down.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_freelook),
+
+    //!
+    // @game doom
+    //
+    // High Resolution Rendering.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_hires),
+
+    //!
+    // @game doom
+    //
+    // Enable jumping.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_jump),
+
+    //!
+    // @game doom
+    //
+    // Use the mouse to look up and down.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_mouselook),
+
+    //!
+    // @game doom
+    //
+    // Negative player health.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_neghealth),
+
+    //!
+    // @game doom
+    //
+    // Players may walk over and under shootable things.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_overunder),
+
+    //!
+    // @game doom
+    //
+    // Enable weapon recoil pitch.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_pitch),
+
+    //!
+    // @game doom
+    //
+    // Enable weapon recoil thrust.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_recoil),
+
+    //!
+    // @game doom
+    //
+    // Show a centered message and play a sound when a secret is found.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_secretmessage),
+
+    //!
+    // @game doom
+    //
+    // Smooth Diminishing Lighting.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_smoothlight),
+
+    //!
+    // @game doom
+    //
+    // Smooth Scaling.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_smoothscaling),
+
+    //!
+    // @game doom
+    //
+    // Number of Sound Channels.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_sndchannels),
+
+    //!
+    // @game doom
+    //
+    // Misc. sound fixes.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_soundfix),
+
+    //!
+    // @game doom
+    //
+    // Play sounds in full length.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_soundfull),
+
+    //!
+    // @game doom
+    //
+    // Mono sound effects.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_soundmono),
+
+    //!
+    // @game doom
+    //
+    // Enable translucency.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_translucency),
+
+    //!
+    // @game doom
+    //
+    // Uncapped Framerate.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_uncapped),
+
+    //!
+    // @game doom
+    //
+    // Squat down weapon on impact.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_weaponsquat),
 };
 
 static default_collection_t extra_defaults =

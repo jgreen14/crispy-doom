@@ -221,12 +221,12 @@ void D_Display (void)
 	    R_RenderPlayerView (&players[displayplayer]);
 	    AM_Drawer ();
 	}
-	if (wipe || (scaledviewheight != SCREENHEIGHT && fullscreen))
+	if (wipe || (viewheight != SCREENHEIGHT && fullscreen))
 	    redrawsbar = true;
 	if (inhelpscreensstate && !inhelpscreens)
 	    redrawsbar = true;              // just put away the help screen
-	ST_Drawer (scaledviewheight == SCREENHEIGHT, redrawsbar );
-	fullscreen = scaledviewheight == SCREENHEIGHT;
+	ST_Drawer (viewheight == SCREENHEIGHT, redrawsbar );
+	fullscreen = viewheight == SCREENHEIGHT;
 	break;
 
       case GS_INTERMISSION:
@@ -259,6 +259,14 @@ void D_Display (void)
     // the HUD is drawn on top of everything else
     if (gamestate == GS_LEVEL && gametic && !(automapactive && crispy->automapoverlay))
 	HU_Drawer ();
+
+    // [crispy] demo progress bar
+    if (demoplayback && crispy->demobar)
+    {
+	extern void HU_DemoProgressBar (void);
+
+	HU_DemoProgressBar();
+    }
     
     // clean up border stuff
     if (gamestate != oldgamestate && gamestate != GS_LEVEL)
@@ -371,7 +379,7 @@ void D_Display (void)
 
 static void EnableLoadingDisk(void)
 {
-    char *disk_lump_name;
+    const char *disk_lump_name;
 
     if (show_diskicon)
     {
@@ -449,6 +457,8 @@ void D_BindVariables(void)
     M_BindIntVariable("crispy_coloredblood",    &crispy->coloredblood);
     M_BindIntVariable("crispy_coloredhud",      &crispy->coloredhud);
     M_BindIntVariable("crispy_crosshair",       &crispy->crosshair);
+    M_BindIntVariable("crispy_crosshairhealth", &crispy->crosshairhealth);
+    M_BindIntVariable("crispy_crosshairtarget", &crispy->crosshairtarget);
     M_BindIntVariable("crispy_crosshairtype",   &crispy->crosshairtype);
     M_BindIntVariable("crispy_demobar",         &crispy->demobar);
     M_BindIntVariable("crispy_demotimer",       &crispy->demotimer);
@@ -458,6 +468,7 @@ void D_BindVariables(void)
     M_BindIntVariable("crispy_flipcorpses",     &crispy->flipcorpses);
     M_BindIntVariable("crispy_freeaim",         &crispy->freeaim);
     M_BindIntVariable("crispy_freelook",        &crispy->freelook);
+    M_BindIntVariable("crispy_hires",           &crispy->hires);
     M_BindIntVariable("crispy_jump",            &crispy->jump);
     M_BindIntVariable("crispy_mouselook",       &crispy->mouselook);
     M_BindIntVariable("crispy_neghealth",       &crispy->neghealth);
@@ -465,9 +476,12 @@ void D_BindVariables(void)
     M_BindIntVariable("crispy_pitch",           &crispy->pitch);
     M_BindIntVariable("crispy_recoil",          &crispy->recoil);
     M_BindIntVariable("crispy_secretmessage",   &crispy->secretmessage);
+    M_BindIntVariable("crispy_smoothlight",     &crispy->smoothlight);
     M_BindIntVariable("crispy_smoothscaling",   &crispy->smoothscaling);
+    M_BindIntVariable("crispy_sndchannels",     &crispy->sndchannels);
     M_BindIntVariable("crispy_soundfix",        &crispy->soundfix);
     M_BindIntVariable("crispy_soundfull",       &crispy->soundfull);
+    M_BindIntVariable("crispy_soundmono",       &crispy->soundmono);
     M_BindIntVariable("crispy_translucency",    &crispy->translucency);
     M_BindIntVariable("crispy_uncapped",        &crispy->uncapped);
     M_BindIntVariable("crispy_weaponsquat",     &crispy->weaponsquat);
@@ -555,7 +569,7 @@ void D_DoomLoop (void)
 //
 int             demosequence;
 int             pagetic;
-char                    *pagename;
+const char                    *pagename;
 
 
 //
@@ -575,10 +589,7 @@ void D_PageTicker (void)
 //
 void D_PageDrawer (void)
 {
-    if (crispy->fliplevels)
-    V_DrawPatchFlipped (0, 0, W_CacheLumpName(pagename, PU_CACHE));
-    else
-    V_DrawPatch (0, 0, W_CacheLumpName(pagename, PU_CACHE));
+    V_DrawPatchFullScreen (W_CacheLumpName(pagename, PU_CACHE), crispy->fliplevels);
 }
 
 
@@ -752,7 +763,7 @@ static char *banners[] =
 static char *GetGameName(char *gamename)
 {
     size_t i;
-    char *deh_sub;
+    const char *deh_sub;
     
     for (i=0; i<arrlen(banners); ++i)
     {
@@ -1018,7 +1029,7 @@ void PrintDehackedBanners(void)
 
     for (i=0; i<arrlen(copyright_banners); ++i)
     {
-        char *deh_s;
+        const char *deh_s;
 
         deh_s = DEH_String(copyright_banners[i]);
 
@@ -1458,6 +1469,7 @@ void D_DoomMain (void)
     }
 
     //!
+    // @category game
     // @vanilla
     //
     // Disable monsters.
@@ -1466,6 +1478,7 @@ void D_DoomMain (void)
     nomonsters = M_CheckParm ("-nomonsters");
 
     //!
+    // @category game
     // @vanilla
     //
     // Monsters respawn after being killed.
@@ -1474,6 +1487,7 @@ void D_DoomMain (void)
     respawnparm = M_CheckParm ("-respawn");
 
     //!
+    // @category game
     // @vanilla
     //
     // Monsters move faster.
@@ -1481,10 +1495,10 @@ void D_DoomMain (void)
 
     fastparm = M_CheckParm ("-fast");
 
-    //! 
+    //!
     // @vanilla
     //
-    // Developer mode.  F1 saves a screenshot in the current working
+    // Developer mode. F1 saves a screenshot in the current working
     // directory.
     //
 
@@ -1532,6 +1546,7 @@ void D_DoomMain (void)
 #ifdef _WIN32
 
     //!
+    // @category obscure
     // @platform windows
     // @vanilla
     //
@@ -1554,6 +1569,7 @@ void D_DoomMain (void)
     }
 
     //!
+    // @category game
     // @arg <x>
     // @vanilla
     //
@@ -1993,6 +2009,7 @@ void D_DoomMain (void)
     autostart = false;
 
     //!
+    // @category game
     // @arg <skill>
     // @vanilla
     //
@@ -2009,6 +2026,7 @@ void D_DoomMain (void)
     }
 
     //!
+    // @category game
     // @arg <n>
     // @vanilla
     //
@@ -2056,6 +2074,7 @@ void D_DoomMain (void)
     }
 
     //!
+    // @category game
     // @arg [<x> <y> | <xy>]
     // @vanilla
     //
@@ -2125,6 +2144,7 @@ void D_DoomMain (void)
     // can override it or send the load slot to other players.
 
     //!
+    // @category game
     // @arg <s>
     // @vanilla
     //

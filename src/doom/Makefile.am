@@ -35,6 +35,8 @@ hu_lib.c           hu_lib.h     \
 hu_stuff.c         hu_stuff.h   \
 info.c             info.h       \
 m_menu.c           m_menu.h     \
+m_background.h                  \
+m_crispy.c         m_crispy.h   \
 m_random.c         m_random.h   \
 p_bexptr.c                      \
 p_blockmap.c                    \
@@ -53,6 +55,7 @@ p_pspr.c           p_pspr.h     \
 p_saveg.c          p_saveg.h    \
 p_extsaveg.c       p_extsaveg.h \
 p_setup.c          p_setup.h    \
+p_extnodes.c       p_extnodes.h \
 p_sight.c                       \
 p_spec.c           p_spec.h     \
 p_switch.c                      \

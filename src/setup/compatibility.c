@@ -63,6 +63,8 @@ void BindCompatibilityVariables(void)
         M_BindIntVariable("crispy_coloredblood",    &crispy->coloredblood);
         M_BindIntVariable("crispy_coloredhud",      &crispy->coloredhud);
         M_BindIntVariable("crispy_crosshair",       &crispy->crosshair);
+        M_BindIntVariable("crispy_crosshairhealth", &crispy->crosshairhealth);
+        M_BindIntVariable("crispy_crosshairtarget", &crispy->crosshairtarget);
         M_BindIntVariable("crispy_crosshairtype",   &crispy->crosshairtype);
         M_BindIntVariable("crispy_demobar",         &crispy->demobar);
         M_BindIntVariable("crispy_demotimer",       &crispy->demotimer);
@@ -72,6 +74,7 @@ void BindCompatibilityVariables(void)
         M_BindIntVariable("crispy_flipcorpses",     &crispy->flipcorpses);
         M_BindIntVariable("crispy_freeaim",         &crispy->freeaim);
         M_BindIntVariable("crispy_freelook",        &crispy->freelook);
+        M_BindIntVariable("crispy_hires",           &crispy->hires);
         M_BindIntVariable("crispy_jump",            &crispy->jump);
         M_BindIntVariable("crispy_mouselook",       &crispy->mouselook);
         M_BindIntVariable("crispy_neghealth",       &crispy->neghealth);
@@ -79,9 +82,12 @@ void BindCompatibilityVariables(void)
         M_BindIntVariable("crispy_pitch",           &crispy->pitch);
         M_BindIntVariable("crispy_recoil",          &crispy->recoil);
         M_BindIntVariable("crispy_secretmessage",   &crispy->secretmessage);
+        M_BindIntVariable("crispy_smoothlight",     &crispy->smoothlight);
         M_BindIntVariable("crispy_smoothscaling",   &crispy->smoothscaling);
+        M_BindIntVariable("crispy_sndchannels",     &crispy->sndchannels);
         M_BindIntVariable("crispy_soundfix",        &crispy->soundfix);
         M_BindIntVariable("crispy_soundfull",       &crispy->soundfull);
+        M_BindIntVariable("crispy_soundmono",       &crispy->soundmono);
         M_BindIntVariable("crispy_translucency",    &crispy->translucency);
         M_BindIntVariable("crispy_uncapped",        &crispy->uncapped);
         M_BindIntVariable("crispy_weaponsquat",     &crispy->weaponsquat);

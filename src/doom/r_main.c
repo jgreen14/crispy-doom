@@ -33,6 +33,7 @@
 #include "m_bbox.h"
 #include "m_menu.h"
 
+#include "i_system.h" // [crispy] I_Realloc()
 #include "p_local.h" // [crispy] MLOOKUNIT
 #include "r_local.h"
 #include "r_sky.h"
@@ -101,15 +102,24 @@ int			viewangletox[FINEANGLES/2];
 // The xtoviewangleangle[] table maps a screen pixel
 // to the lowest viewangle that maps back to x ranges
 // from clipangle to -clipangle.
-angle_t			xtoviewangle[SCREENWIDTH+1];
+angle_t			xtoviewangle[MAXWIDTH+1];
 
-lighttable_t*		scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
-lighttable_t*		scalelightfixed[MAXLIGHTSCALE];
-lighttable_t*		zlight[LIGHTLEVELS][MAXLIGHTZ];
+// [crispy] parameterized for smooth diminishing lighting
+lighttable_t***		scalelight = NULL;
+lighttable_t**		scalelightfixed = NULL;
+lighttable_t***		zlight = NULL;
 
 // bumped light from gun blasts
 int			extralight;			
 
+// [crispy] parameterized for smooth diminishing lighting
+int LIGHTLEVELS;
+int LIGHTSEGSHIFT;
+int LIGHTBRIGHT;
+int MAXLIGHTSCALE;
+int LIGHTSCALESHIFT;
+int MAXLIGHTZ;
+int LIGHTZSHIFT;
 
 
 void (*colfunc) (void);
@@ -524,7 +534,7 @@ fixed_t R_ScaleFromGlobalAngle (angle_t visangle)
     // both sines are allways positive
     sinea = finesine[anglea>>ANGLETOFINESHIFT];	
     sineb = finesine[angleb>>ANGLETOFINESHIFT];
-    num = FixedMul(projection,sineb)<<(detailshift && !hires);
+    num = FixedMul(projection,sineb)<<detailshift;
     den = FixedMul(rw_distance,sinea);
 
     if (den > num>>FRACBITS)
@@ -681,11 +691,62 @@ void R_InitLightTables (void)
     int		startmap; 	
     int		scale;
     
+    if (scalelight)
+    {
+	for (i = 0; i < LIGHTLEVELS; i++)
+	{
+		free(scalelight[i]);
+	}
+	free(scalelight);
+    }
+
+    if (scalelightfixed)
+    {
+	free(scalelightfixed);
+    }
+
+    if (zlight)
+    {
+	for (i = 0; i < LIGHTLEVELS; i++)
+	{
+		free(zlight[i]);
+	}
+	free(zlight);
+    }
+
+   // [crispy] smooth diminishing lighting
+    if (crispy->smoothlight)
+    {
+	LIGHTLEVELS = 32;
+	LIGHTSEGSHIFT = 3;
+	LIGHTBRIGHT = 2;
+	MAXLIGHTSCALE = 48;
+	LIGHTSCALESHIFT = 12;
+	MAXLIGHTZ = 1024;
+	LIGHTZSHIFT = 17;
+    }
+    else
+    {
+	LIGHTLEVELS = 16;
+	LIGHTSEGSHIFT = 4;
+	LIGHTBRIGHT = 1;
+	MAXLIGHTSCALE = 48;
+	LIGHTSCALESHIFT = 12;
+	MAXLIGHTZ = 128;
+	LIGHTZSHIFT = 20;
+    }
+
+    scalelight = malloc(LIGHTLEVELS * sizeof(*scalelight));
+    scalelightfixed = malloc(MAXLIGHTSCALE * sizeof(*scalelightfixed));
+    zlight = malloc(LIGHTLEVELS * sizeof(*zlight));
+
     // Calculate the light levels to use
     //  for each level / distance combination.
     for (i=0 ; i< LIGHTLEVELS ; i++)
     {
-	startmap = ((LIGHTLEVELS-1-i)*2)*NUMCOLORMAPS/LIGHTLEVELS;
+	zlight[i] = malloc(MAXLIGHTZ * sizeof(**zlight));
+
+	startmap = ((LIGHTLEVELS-LIGHTBRIGHT-i)*2)*NUMCOLORMAPS/LIGHTLEVELS;
 	for (j=0 ; j<MAXLIGHTZ ; j++)
 	{
 	    scale = FixedDiv ((ORIGWIDTH/2*FRACUNIT), (j+1)<<LIGHTZSHIFT);
@@ -744,17 +805,16 @@ void R_ExecuteSetViewSize (void)
     if (setblocks >= 11) // [crispy] Crispy HUD
     {
 	scaledviewwidth = SCREENWIDTH;
-	scaledviewheight = SCREENHEIGHT;
+	viewheight = SCREENHEIGHT;
     }
     else
     {
 	scaledviewwidth = (setblocks*32)<<hires;
-	scaledviewheight = ((setblocks*168/10)&~7)<<hires;
+	viewheight = ((setblocks*168/10)&~7)<<hires;
     }
     
     detailshift = setdetail;
     viewwidth = scaledviewwidth>>detailshift;
-    viewheight = scaledviewheight>>(detailshift && hires);
 	
     centery = viewheight/2;
     centerx = viewwidth/2;
@@ -779,7 +839,7 @@ void R_ExecuteSetViewSize (void)
 	spanfunc = R_DrawSpanLow;
     }
 
-    R_InitBuffer (scaledviewwidth, scaledviewheight);
+    R_InitBuffer (scaledviewwidth, viewheight);
 	
     R_InitTextureMapping ();
     
@@ -796,10 +856,10 @@ void R_ExecuteSetViewSize (void)
     {
 	// [crispy] re-generate lookup-table for yslope[] (free look)
 	// whenever "detailshift" or "screenblocks" change
-	const fixed_t num = (viewwidth<<(detailshift && !hires))/2*FRACUNIT;
+	const fixed_t num = (viewwidth<<detailshift)/2*FRACUNIT;
 	for (j = 0; j < LOOKDIRS; j++)
 	{
-	dy = ((i-(viewheight/2 + ((j-LOOKDIRMIN) << (hires && !detailshift)) * (screenblocks < 11 ? screenblocks : 11) / 10))<<FRACBITS)+FRACUNIT/2;
+	dy = ((i-(viewheight/2 + ((j-LOOKDIRMIN) << hires) * (screenblocks < 11 ? screenblocks : 11) / 10))<<FRACBITS)+FRACUNIT/2;
 	dy = abs(dy);
 	yslopes[j][i] = FixedDiv (num, dy);
 	}
@@ -816,7 +876,9 @@ void R_ExecuteSetViewSize (void)
     //  for each level / scale combination.
     for (i=0 ; i< LIGHTLEVELS ; i++)
     {
-	startmap = ((LIGHTLEVELS-1-i)*2)*NUMCOLORMAPS/LIGHTLEVELS;
+	scalelight[i] = malloc(MAXLIGHTSCALE * sizeof(**scalelight));
+
+	startmap = ((LIGHTLEVELS-LIGHTBRIGHT-i)*2)*NUMCOLORMAPS/LIGHTLEVELS;
 	for (j=0 ; j<MAXLIGHTSCALE ; j++)
 	{
 	    level = startmap - j*SCREENWIDTH/(viewwidth<<detailshift)/DISTMAP;
@@ -918,7 +980,7 @@ void R_SetupFrame (player_t* player)
         // that would necessitate turning it off for a tic.
         player->mo->interp == true &&
         // Don't interpolate during a paused state
-        !paused && !menuactive)
+        !paused && (!menuactive || demoplayback || netgame))
     {
         // Interpolate player camera from their old position to their current one.
         viewx = player->mo->oldx + FixedMul(player->mo->x - player->mo->oldx, fractionaltic);
@@ -949,7 +1011,7 @@ void R_SetupFrame (player_t* player)
 	pitch = -LOOKDIRMIN;
 
     // apply new yslope[] whenever "lookdir", "detailshift" or "screenblocks" change
-    tempCentery = viewheight/2 + (pitch << (hires && !detailshift)) * (screenblocks < 11 ? screenblocks : 11) / 10;
+    tempCentery = viewheight/2 + (pitch << hires) * (screenblocks < 11 ? screenblocks : 11) / 10;
     if (centery != tempCentery)
     {
         centery = tempCentery;
@@ -1004,7 +1066,7 @@ void R_RenderPlayerView (player_t* player)
     
     // [crispy] flashing HOM indicator
     V_DrawFilledBox(viewwindowx, viewwindowy,
-        scaledviewwidth, scaledviewheight,
+        scaledviewwidth, viewheight,
         colormaps[crispy->flashinghom ? (176 + (gametic % 16)) : 0]);
 
     // check for new console commands.
