@@ -195,6 +195,7 @@ int key_menu_reloadlevel = 0; // [crispy]
 //
 
 int joybfire = 0;
+int joybtoggleautorun = -1;
 int joybstrafe = 1;
 int joybuse = 3;
 int joybspeed = 2;
@@ -241,6 +242,7 @@ void M_BindBaseControls(void)
     M_BindIntVariable("mouseb_forward",     &mousebforward);
 
     M_BindIntVariable("joyb_fire",          &joybfire);
+    M_BindIntVariable("joyb_toggle_autorun", &joybtoggleautorun);
     M_BindIntVariable("joyb_strafe",        &joybstrafe);
     M_BindIntVariable("joyb_use",           &joybuse);
     M_BindIntVariable("joyb_speed",         &joybspeed);

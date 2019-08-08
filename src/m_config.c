@@ -514,6 +514,12 @@ static default_t	doom_defaults_list[] =
     CONFIG_VARIABLE_INT(joyb_fire),
 
     //!
+    // Joystick virtual button that fires the current weapon 2.
+    //
+
+    CONFIG_VARIABLE_INT(joyb_toggle_autorun),
+
+    //!
     // Joystick virtual button that makes the player strafe while
     // held down.
     //
