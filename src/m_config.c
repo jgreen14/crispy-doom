@@ -514,10 +514,16 @@ static default_t	doom_defaults_list[] =
     CONFIG_VARIABLE_INT(joyb_fire),
 
     //!
-    // Joystick virtual button that fires the current weapon 2.
+    // Joystick virtual button that toggles autorun.
     //
 
     CONFIG_VARIABLE_INT(joyb_toggle_autorun),
+
+    //!
+    // Joystick virtual button does quick reverse (180 degree turn)
+    //
+
+    CONFIG_VARIABLE_INT(joyb_reverse),
 
     //!
     // Joystick virtual button that makes the player strafe while
@@ -1280,7 +1286,6 @@ static default_t extra_defaults_list[] =
     CONFIG_VARIABLE_INT(joystick_physical_button10),
 
     //!
-    // [crispy]
     // The physical joystick button that corresponds to joystick
     // virtual button #11.
     //
@@ -1288,7 +1293,6 @@ static default_t extra_defaults_list[] =
     CONFIG_VARIABLE_INT(joystick_physical_button11),
 
     //!
-    // [crispy]
     // The physical joystick button that corresponds to joystick
     // virtual button #12.
     //

@@ -205,6 +205,8 @@ int joybstraferight = -1;
 
 int joybjump = -1;
 
+int joybreverse = -1;
+
 int joybprevweapon = -1;
 int joybnextweapon = -1;
 
@@ -246,6 +248,7 @@ void M_BindBaseControls(void)
     M_BindIntVariable("joyb_strafe",        &joybstrafe);
     M_BindIntVariable("joyb_use",           &joybuse);
     M_BindIntVariable("joyb_speed",         &joybspeed);
+    M_BindIntVariable("joyb_reverse",         &joybreverse);
 
     M_BindIntVariable("joyb_menu_activate", &joybmenu);
     M_BindIntVariable("joyb_toggle_automap", &joybautomap);

@@ -156,6 +156,7 @@ extern int joybtoggleautorun;
 extern int joybstrafe;
 extern int joybuse;
 extern int joybspeed;
+extern int joybreverse;
 
 extern int joybjump;
 

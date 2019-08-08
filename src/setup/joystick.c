@@ -150,6 +150,7 @@ static const joystick_config_t empty_defaults[] =
     {"joyb_prevweapon",            -1},
     {"joyb_nextweapon",            -1},
     {"joyb_jump",                  -1},
+    {"joyb_reverse",               -1},
     {"joyb_menu_activate",         -1},
     {"joyb_toggle_automap",        -1},
     {"joystick_physical_button0",  0},
@@ -1049,6 +1050,7 @@ void ConfigJoystick(TXT_UNCAST_ARG(widget), void *user_data)
 
     AddJoystickControl(window, "Fire/Attack", &joybfire);
     AddJoystickControl(window, "Toggle Autorun", &joybtoggleautorun);
+    AddJoystickControl(window, "Quick Reverse", &joybreverse);
     AddJoystickControl(window, "Strafe Left", &joybstrafeleft);
 
     AddJoystickControl(window, "Use", &joybuse);
