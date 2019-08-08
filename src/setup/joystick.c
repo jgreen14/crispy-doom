@@ -87,7 +87,7 @@ static int joystick_look_invert = 0;
 
 // Virtual to physical mapping.
 int joystick_physical_buttons[NUM_VIRTUAL_BUTTONS] = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
 };
 
 static txt_button_t *joystick_button;
@@ -141,6 +141,7 @@ static const joystick_config_t empty_defaults[] =
     {"joystick_look_axis",         -1},
     {"joystick_look_invert",       0},
     {"joyb_fire",                  -1},
+    {"joyb_toggle_autorun",        -1},
     {"joyb_use",                   -1},
     {"joyb_strafe",                -1},
     {"joyb_speed",                 -1},
@@ -1047,6 +1048,7 @@ void ConfigJoystick(TXT_UNCAST_ARG(widget), void *user_data)
     TXT_AddWidget(window, TXT_NewSeparator("Buttons"));
 
     AddJoystickControl(window, "Fire/Attack", &joybfire);
+    AddJoystickControl(window, "Toggle Autorun", &joybtoggleautorun);
     AddJoystickControl(window, "Strafe Left", &joybstrafeleft);
 
     AddJoystickControl(window, "Use", &joybuse);
