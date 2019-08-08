@@ -1280,11 +1280,20 @@ static default_t extra_defaults_list[] =
     CONFIG_VARIABLE_INT(joystick_physical_button10),
 
     //!
+    // [crispy]
     // The physical joystick button that corresponds to joystick
     // virtual button #11.
     //
 
     CONFIG_VARIABLE_INT(joystick_physical_button11),
+
+    //!
+    // [crispy]
+    // The physical joystick button that corresponds to joystick
+    // virtual button #12.
+    //
+
+    CONFIG_VARIABLE_INT(joystick_physical_button12),
 
     //!
     // Joystick virtual button to make the player strafe left.
