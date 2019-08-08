@@ -178,6 +178,10 @@ static int *weapon_keys[] = {
 
 static int next_weapon = 0;
 
+// [crispy] Track if joystick autorun toggle is pressed
+
+static boolean joyb_toggle_autorun_down = false;
+
 // Used for prev/next weapon keys.
 
 static const struct
@@ -412,7 +416,8 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
     }
 
     // [crispy] toggle "always run"
-    if (gamekeydown[key_toggleautorun])
+    if (gamekeydown[key_toggleautorun] 
+        || (joybuttons[joybtoggleautorun] && !joyb_toggle_autorun_down))
     {
         static int joybspeed_old = 2;
 
@@ -432,7 +437,14 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
         player->message = playermessage;
         S_StartSound(NULL, sfx_swtchn);
 
-        gamekeydown[key_toggleautorun] = false;
+        if (gamekeydown[key_toggleautorun])
+        {
+            gamekeydown[key_toggleautorun] = false;
+        }
+        else if (joybuttons[joybtoggleautorun])
+        {
+            joyb_toggle_autorun_down = true;
+        }
     }
 
     // [crispy] Toggle vertical mouse movement
@@ -890,6 +902,11 @@ static void SetJoyButtons(unsigned int buttons_mask)
         }
 
         joybuttons[i] = button_on;
+    }
+
+    // [crispy] Reset toggle autorun joystick button status
+    if (joyb_toggle_autorun_down && !joybuttons[joybtoggleautorun]) {
+        joyb_toggle_autorun_down = false;
     }
 }
 
