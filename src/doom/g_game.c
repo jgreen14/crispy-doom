@@ -182,6 +182,10 @@ static int next_weapon = 0;
 
 static boolean joyb_toggle_autorun_down = false;
 
+// [crispy] Track if joystick quick reverse is pressed
+
+static boolean joyb_reverse_down = false;
+
 // Used for prev/next weapon keys.
 
 static const struct
@@ -408,11 +412,13 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
     }
 
     // [crispy] add quick 180° reverse
-    if (gamekeydown[key_reverse] || mousebuttons[mousebreverse])
+    if (gamekeydown[key_reverse] || mousebuttons[mousebreverse]
+        || (joybuttons[joybreverse] && !joyb_reverse_down))
     {
         cmd->angleturn += ANG180 >> FRACBITS;
         gamekeydown[key_reverse] = false;
         mousebuttons[mousebreverse] = false;
+        joyb_reverse_down = true;
     }
 
     // [crispy] toggle "always run"
@@ -907,6 +913,11 @@ static void SetJoyButtons(unsigned int buttons_mask)
     // [crispy] Reset toggle autorun joystick button status
     if (joyb_toggle_autorun_down && !joybuttons[joybtoggleautorun]) {
         joyb_toggle_autorun_down = false;
+    }
+
+    // [crispy] Reset reverse joystick button status
+    if (joyb_reverse_down && !joybuttons[joybreverse]) {
+        joyb_reverse_down = false;
     }
 }
 
