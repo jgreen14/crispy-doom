@@ -60,7 +60,7 @@
 #define HU_TITLEM	(mapnames_commercial[gamemap-1 + 105 + 3])
 #define HU_TITLE_CHEX   (mapnames_chex[(gameepisode-1)*9+gamemap-1])
 #define HU_TITLEHEIGHT	1
-#define HU_TITLEX	0
+#define HU_TITLEX	(0 - DELTAWIDTH)
 #define HU_TITLEY	(167 - SHORT(hu_font[0]->height))
 
 #define HU_INPUTTOGGLE	't'
@@ -69,7 +69,7 @@
 #define HU_INPUTWIDTH	64
 #define HU_INPUTHEIGHT	1
 
-#define HU_COORDX	(ORIGWIDTH - 7 * hu_font['A'-HU_FONTSTART]->width)
+#define HU_COORDX	((ORIGWIDTH - 7 * hu_font['A'-HU_FONTSTART]->width) + DELTAWIDTH)
 
 
 char *chat_macros[10] =
@@ -610,6 +610,9 @@ void HU_Start(void)
     secret_on = false;
     chat_on = false;
 
+    // [crispy] re-calculate DELTAWIDTH
+    I_GetScreenDimensions();
+
     // create the message widget
     HUlib_initSText(&w_message,
 		    HU_MSGX, HU_MSGY, HU_MSGHEIGHT,
@@ -827,7 +830,7 @@ void HU_Drawer(void)
     }
 
     // [crispy] translucent messages for translucent HUD
-    if (screenblocks > CRISPY_HUD && (!automapactive || crispy->automapoverlay))
+    if (screenblocks > CRISPY_HUD + 1 && (!automapactive || crispy->automapoverlay))
 	dp_translucent = true;
 
     if (secret_on && !menuactive)
@@ -854,7 +857,7 @@ void HU_Drawer(void)
     if (crispy->automapstats == WIDGETS_ALWAYS || (automapactive && crispy->automapstats == WIDGETS_AUTOMAP))
     {
 	// [crispy] move obtrusive line out of player view
-	if (automapactive && (!crispy->automapoverlay || screenblocks < CRISPY_HUD - 1))
+	if (automapactive && (!crispy->automapoverlay || screenblocks < CRISPY_HUD - 1) && !crispy->widescreen)
 	    HUlib_drawTextLine(&w_map, false);
 
 	HUlib_drawTextLine(&w_kills, false);
@@ -895,7 +898,13 @@ void HU_Drawer(void)
     else
     if (demorecording && (crispy->demotimer & DEMOTIMER_RECORD))
     {
-	ST_DrawDemoTimer(defdemotics);
+	ST_DrawDemoTimer(leveltime);
+    }
+
+    // [crispy] demo progress bar
+    if (demoplayback && crispy->demobar)
+    {
+	HU_DemoProgressBar();
     }
 }
 
@@ -997,7 +1006,7 @@ void HU_Ticker(void)
 			    message_counter = HU_MSGTIMEOUT;
 			    if ( gamemode == commercial )
 			      S_StartSound(0, sfx_radio);
-			    else
+			    else if (gameversion > exe_doom_1_2)
 			      S_StartSound(0, sfx_tink);
 			}
 			HUlib_resetIText(&w_inputbuffer[i]);
@@ -1011,7 +1020,7 @@ void HU_Ticker(void)
     if (automapactive)
     {
 	// [crispy] move map title to the bottom
-	if (crispy->automapoverlay && screenblocks >= CRISPY_HUD - 1)
+	if ((crispy->automapoverlay && screenblocks >= CRISPY_HUD - 1) || crispy->widescreen)
 	    w_title.y = HU_TITLEY + ST_HEIGHT;
 	else
 	    w_title.y = HU_TITLEY;

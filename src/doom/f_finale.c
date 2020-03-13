@@ -363,7 +363,7 @@ void F_TextWrite (void)
 	{
 	    break;
 	}
-	V_DrawPatchShadow1(cx, cy, hu_font[c]);
+	V_DrawPatch(cx, cy, hu_font[c]);
 	cx+=w;
     }
 	
@@ -834,7 +834,7 @@ void F_CastPrint (const char *text)
 	}
 		
 	w = SHORT (hu_font[c]->width);
-	V_DrawPatchShadow1(cx, 180, hu_font[c]);
+	V_DrawPatch(cx, 180, hu_font[c]);
 	cx+=w;
     }
 	
@@ -895,7 +895,7 @@ F_DrawPatchCol
     int		count;
 	
     column = (column_t *)((byte *)patch + LONG(patch->columnofs[col >> FRACBITS]));
-    desttop = I_VideoBuffer + x;
+    desttop = I_VideoBuffer + x + (DELTAWIDTH << crispy->hires);
 
     // step through the posts in a column
     while (column->topdelta != 0xff )
@@ -929,9 +929,15 @@ void F_BunnyScroll (void)
     int		stage;
     static int	laststage;
 		
-    dxi = (ORIGWIDTH << FRACBITS) / SCREENWIDTH;
+    dxi = (ORIGWIDTH << FRACBITS) / HIRESWIDTH;
     dy = (SCREENHEIGHT << FRACBITS) / ORIGHEIGHT;
     dyi = (ORIGHEIGHT << FRACBITS) / SCREENHEIGHT;
+
+    // [crispy] fill pillarboxes in widescreen mode
+    if (SCREENWIDTH != HIRESWIDTH)
+    {
+	V_DrawFilledBox(0, 0, SCREENWIDTH, SCREENHEIGHT, 0);
+    }
 
     p1 = W_CacheLumpName (DEH_String("PFUB2"), PU_LEVEL);
     p2 = W_CacheLumpName (DEH_String("PFUB1"), PU_LEVEL);

@@ -1,9 +1,9 @@
-AC_INIT(Crispy Doom, 5.6.0,
+AC_INIT(Crispy Doom, 5.7.2,
         fabian@greffrath.com, crispy-doom)
 
 PACKAGE_SHORTNAME=${PACKAGE_NAME% Doom}
 PACKAGE_SHORTDESC="Limit-removing enhanced-resolution Doom source port"
-PACKAGE_COPYRIGHT="Copyright (C) 1993-2018"
+PACKAGE_COPYRIGHT="Copyright (C) 1993-2020"
 PACKAGE_LICENSE="GNU General Public License, version 2"
 PACKAGE_MAINTAINER="Fabian Greffrath"
 PACKAGE_URL="http://fabiangreffrath.github.io/crispy-doom"
@@ -115,13 +115,6 @@ AC_CHECK_DECLS([strcasecmp, strncasecmp], [], [], [[#include <strings.h>]])
 AC_CHECK_LIB(i386, i386_iopl)
 AC_CHECK_LIB(amd64, amd64_iopl)
 
-AC_ARG_WITH([bashcompletiondir],
-    AS_HELP_STRING([--with-bashcompletiondir=DIR], [Bash completion directory]),
-    [],
-    [AS_IF([$($PKG_CONFIG --exists bash-completion 2> /dev/null)],
-        [bashcompletiondir=$($PKG_CONFIG --variable=completionsdir bash-completion)],
-	[bashcompletiondir=${datadir}/bash-completion/completions])])
-
 case "$host" in
   *-*-mingw* | *-*-cygwin* | *-*-msvc* )
     AC_CHECK_TOOL(WINDRES, windres, )
@@ -181,8 +174,6 @@ AC_SUBST(PACKAGE_URL)
 AC_SUBST(PACKAGE_RDNS)
 AC_SUBST(PACKAGE_ISSUES)
 
-AC_SUBST(bashcompletiondir)
-
 dnl Shut up the datarootdir warnings.
 AC_DEFUN([AC_DATAROOTDIR_CHECKED])
 
@@ -204,23 +195,23 @@ pkg/osx/Info.plist
 rpm.spec
 data/Makefile
 src/Makefile
-src/doom.appdata.xml
-src/doom.desktop
-src/doom-screensaver.desktop
+src/Doom.metainfo.xml
+src/Doom.desktop
+src/Doom_Screensaver.desktop
 src/doom/Makefile
-src/heretic.appdata.xml
-src/heretic.desktop
+src/Heretic.metainfo.xml
+src/Heretic.desktop
 src/heretic/Makefile
-src/hexen.appdata.xml
-src/hexen.desktop
+src/Hexen.metainfo.xml
+src/Hexen.desktop
 src/hexen/Makefile
 src/resource.rc
 src/setup-res.rc
 src/setup/Makefile
-src/setup/setup.desktop
+src/setup/Setup.desktop
 src/setup/setup-manifest.xml
-src/strife.appdata.xml
-src/strife.desktop
+src/Strife.metainfo.xml
+src/Strife.desktop
 src/strife/Makefile
 textscreen/Makefile
 textscreen/examples/Makefile

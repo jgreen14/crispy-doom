@@ -25,6 +25,7 @@
 #include "m_random.h"
 
 #include "deh_main.h"
+#include "deh_bexpars.h" // [crispy] bex_pars[]
 #include "i_swap.h"
 #include "i_system.h"
 
@@ -698,7 +699,7 @@ WI_drawNum
     }
 
     // draw a minus sign if necessary
-    if (neg)
+    if (neg && wiminus)
 	V_DrawPatch(x-=8, y, wiminus);
 
     return x;
@@ -1498,7 +1499,6 @@ void WI_updateStats(void)
 // [crispy] conditionally draw par times on intermission screen
 static boolean WI_drawParTime (void)
 {
-	extern int bex_pars[4][10], bex_cpars[32];
 	extern lumpinfo_t *maplumpinfo;
 
 	boolean result = true;
@@ -1545,8 +1545,14 @@ static boolean WI_drawParTime (void)
 			result = true;
 		}
 
-		// [crispy] PWAD: BEX patch provided par times for Episodes 1-3
-		if (wbs->epsd < 3 && bex_pars[wbs->epsd + 1][wbs->last + 1])
+		// [crispy] IWAD/PWAD: BEX patch provided par times for Episodes 1-4
+		if (wbs->epsd <= 3 && bex_pars[wbs->epsd + 1][wbs->last + 1])
+		{
+			result = true;
+		}
+
+		// [crispy] PWAD: par times for Sigil
+		if (wbs->epsd == 4)
 		{
 			result = true;
 		}
@@ -1585,12 +1591,7 @@ void WI_drawStats(void)
     if (WI_drawParTime())
     {
         V_DrawPatch(ORIGWIDTH/2 + SP_TIMEX, SP_TIMEY, par);
-
-        // Emulation: don't draw partime value if map33
-        if (gamemode != commercial || wbs->last != NUMCMAPS)
-        {
-            WI_drawTime(ORIGWIDTH - SP_TIMEX, SP_TIMEY, cnt_par, true);
-        }
+        WI_drawTime(ORIGWIDTH - SP_TIMEX, SP_TIMEY, cnt_par, true);
     }
 
     // [crispy] draw total time after level time and par time
@@ -1604,11 +1605,25 @@ void WI_drawStats(void)
 	WI_drawTime((wide ? ORIGWIDTH : ORIGWIDTH/2) - SP_TIMEX, SP_TIMEY + 16, ttime, false);
     }
 
+    // [crispy] exit early from the tally screen after ExM8
+    if (sp_state == 10 && gamemode != commercial && gamemap == 8)
+    {
+	acceleratestage = 1;
+    }
+
     // [crispy] demo timer widget
     if ((demoplayback && (crispy->demotimer & DEMOTIMER_PLAYBACK)) ||
         (demorecording && (crispy->demotimer & DEMOTIMER_RECORD)))
     {
 	ST_DrawDemoTimer(leveltime);
+    }
+
+    // [crispy] demo progress bar
+    if (demoplayback && crispy->demobar)
+    {
+	extern void HU_DemoProgressBar (void);
+
+	HU_DemoProgressBar();
     }
 }
 
@@ -1764,7 +1779,10 @@ static void WI_loadUnloadData(load_callback_t callback)
     }
 
     // More hacks on minus sign.
-    callback(DEH_String("WIMINUS"), &wiminus);
+    if (W_CheckNumForName(DEH_String("WIMINUS")) > 0)
+        callback(DEH_String("WIMINUS"), &wiminus);
+    else
+        wiminus = NULL;
 
     for (i=0;i<10;i++)
     {

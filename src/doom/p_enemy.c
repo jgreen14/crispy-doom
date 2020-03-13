@@ -172,6 +172,7 @@ boolean P_CheckMeleeRange (mobj_t*	actor)
 {
     mobj_t*	pl;
     fixed_t	dist;
+    fixed_t range;
 	
     if (!actor->target)
 	return false;
@@ -179,8 +180,14 @@ boolean P_CheckMeleeRange (mobj_t*	actor)
     pl = actor->target;
     dist = P_AproxDistance (pl->x-actor->x, pl->y-actor->y);
 
-    if (dist >= MELEERANGE-20*FRACUNIT+pl->info->radius)
-	return false;
+    if (gameversion <= exe_doom_1_2)
+        range = MELEERANGE;
+    else
+        range = MELEERANGE-20*FRACUNIT+pl->info->radius;
+
+    if (dist >= range)
+        return false;
+
 	
     if (! P_CheckSight (actor, actor->target) )
 	return false;
@@ -694,8 +701,8 @@ void A_Chase (mobj_t*	actor)
     // modify target threshold
     if  (actor->threshold)
     {
-	if (!actor->target
-	    || actor->target->health <= 0)
+        if (gameversion > exe_doom_1_2 && 
+            (!actor->target || actor->target->health <= 0))
 	{
 	    actor->threshold = 0;
 	}
@@ -954,11 +961,19 @@ void A_SargAttack (mobj_t* actor)
 	return;
 		
     A_FaceTarget (actor);
-    if (P_CheckMeleeRange (actor))
+
+    if (gameversion > exe_doom_1_2)
     {
-	damage = ((P_Random()%10)+1)*4;
-	P_DamageMobj (actor->target, actor, actor, damage);
+        if (!P_CheckMeleeRange (actor))
+            return;
     }
+
+    damage = ((P_Random()%10)+1)*4;
+
+    if (gameversion <= exe_doom_1_2)
+        P_LineAttack(actor, actor->angle, MELEERANGE, 0, damage);
+    else
+        P_DamageMobj (actor->target, actor, actor, damage);
 }
 
 void A_HeadAttack (mobj_t* actor)
@@ -1305,13 +1320,6 @@ void A_Fire (mobj_t* actor)
     actor->y = dest->y + FixedMul (24*FRACUNIT, finesine[an]);
     actor->z = dest->z;
     P_SetThingPosition (actor);
-    // [crispy] update the Archvile fire's floorz and ceilingz values
-    // to prevent it from jumping back and forth between the floor heights
-    // of its (faulty) spawn sector and the target's actual sector.
-    // Thanks to Quasar for his excellent analysis at
-    // https://www.doomworld.com/vb/post/1297952
-    actor->floorz = actor->subsector->sector->floorheight;
-    actor->ceilingz = actor->subsector->sector->ceilingheight;
 }
 
 
@@ -1879,7 +1887,7 @@ A_CloseShotgun2
 
 mobj_t**		braintargets = NULL;
 int		numbraintargets = 0; // [crispy] initialize
-int		braintargeton = -1; // [crispy] initialize
+int		braintargeton = 0;
 static int	maxbraintargets; // [crispy] remove braintargets limit
 
 void A_BrainAwake (mobj_t* mo)
@@ -1889,11 +1897,7 @@ void A_BrainAwake (mobj_t* mo)
 	
     // find all the target spots
     numbraintargets = 0;
-    // [crispy] initialize, but allow overriding from savegame
-    if (braintargeton == -1)
-    {
     braintargeton = 0;
-    }
 	
     thinker = thinkercap.next;
     for (thinker = thinkercap.next ;
@@ -2020,7 +2024,7 @@ void A_BrainSpit (mobj_t*	mo)
 
     // shoot a cube at current target
     targ = braintargets[braintargeton];
-    if (numbraintargets == 0 && false) // [crispy] fixed division by zero
+    if (numbraintargets == 0)
     {
         I_Error("A_BrainSpit: numbraintargets was 0 (vanilla crashes here)");
     }

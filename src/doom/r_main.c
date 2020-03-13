@@ -37,6 +37,7 @@
 #include "p_local.h" // [crispy] MLOOKUNIT
 #include "r_local.h"
 #include "r_sky.h"
+#include "st_stuff.h" // [crispy] ST_refreshBackground()
 
 
 
@@ -615,6 +616,7 @@ void R_InitTextureMapping (void)
     int			x;
     int			t;
     fixed_t		focallength;
+    fixed_t		focalwidth;
     
     // Use tangent table to generate viewangletox:
     //  viewangletox will give the next greatest x
@@ -622,7 +624,10 @@ void R_InitTextureMapping (void)
     //
     // Calc focallength
     //  so FIELDOFVIEW angles covers SCREENWIDTH.
-    focallength = FixedDiv (centerxfrac,
+    // [crispy] in widescreen mode, make sure the same number of horizontal
+    // pixels shows the same part of the game scene as in regular rendering mode
+    focalwidth = crispy->widescreen ? ((HIRESWIDTH>>detailshift)/2)<<FRACBITS : centerxfrac;
+    focallength = FixedDiv (focalwidth,
 			    finetangent[FINEANGLES/4+FIELDOFVIEW/2] );
 	
     for (i=0 ; i<FINEANGLES/2 ; i++)
@@ -772,6 +777,9 @@ boolean		setsizeneeded;
 int		setblocks;
 int		setdetail;
 
+// [crispy] lookup table for horizontal screen coordinates
+int		flipscreenwidth[MAXWIDTH];
+int		*flipviewwidth;
 
 void
 R_SetViewSize
@@ -798,6 +806,19 @@ void R_ExecuteSetViewSize (void)
 
     setsizeneeded = false;
 
+	// [crispy] make absolutely sure screenblocks is never < 11 in widescreen mode
+	if (crispy->widescreen)
+	{
+		extern void M_SizeDisplay(int choice);
+
+		while (setblocks < 11)
+		{
+			M_SizeDisplay(1);
+			R_ExecuteSetViewSize();
+			return;
+		}
+	}
+
     if (setblocks >= 11) // [crispy] Crispy HUD
     {
 	scaledviewwidth = SCREENWIDTH;
@@ -816,7 +837,7 @@ void R_ExecuteSetViewSize (void)
     centerx = viewwidth/2;
     centerxfrac = centerx<<FRACBITS;
     centeryfrac = centery<<FRACBITS;
-    projection = centerxfrac;
+    projection = MIN(centerxfrac, ((HIRESWIDTH>>detailshift)/2)<<FRACBITS);
 
     if (!detailshift)
     {
@@ -840,8 +861,8 @@ void R_ExecuteSetViewSize (void)
     R_InitTextureMapping ();
     
     // psprite scales
-    pspritescale = FRACUNIT*viewwidth/ORIGWIDTH;
-    pspriteiscale = FRACUNIT*ORIGWIDTH/viewwidth;
+    pspritescale = FRACUNIT*MIN(viewwidth, HIRESWIDTH>>detailshift)/ORIGWIDTH;
+    pspriteiscale = FRACUNIT*ORIGWIDTH/MIN(viewwidth, HIRESWIDTH>>detailshift);
     
     // thing clipping
     for (i=0 ; i<viewwidth ; i++)
@@ -852,7 +873,7 @@ void R_ExecuteSetViewSize (void)
     {
 	// [crispy] re-generate lookup-table for yslope[] (free look)
 	// whenever "detailshift" or "screenblocks" change
-	const fixed_t num = (viewwidth<<detailshift)/2*FRACUNIT;
+	const fixed_t num = MIN(viewwidth<<detailshift, HIRESWIDTH)/2*FRACUNIT;
 	for (j = 0; j < LOOKDIRS; j++)
 	{
 	dy = ((i-(viewheight/2 + ((j-LOOKDIRMIN) * (1 << crispy->hires)) * (screenblocks < 11 ? screenblocks : 11) / 10))<<FRACBITS)+FRACUNIT/2;
@@ -877,7 +898,7 @@ void R_ExecuteSetViewSize (void)
 	startmap = ((LIGHTLEVELS-LIGHTBRIGHT-i)*2)*NUMCOLORMAPS/LIGHTLEVELS;
 	for (j=0 ; j<MAXLIGHTSCALE ; j++)
 	{
-	    level = startmap - j*SCREENWIDTH/(viewwidth<<detailshift)/DISTMAP;
+	    level = startmap - j*HIRESWIDTH/MIN(viewwidth<<detailshift, HIRESWIDTH)/DISTMAP;
 	    
 	    if (level < 0)
 		level = 0;
@@ -888,6 +909,17 @@ void R_ExecuteSetViewSize (void)
 	    scalelight[i][j] = colormaps + level*256;
 	}
     }
+
+    // [crispy] lookup table for horizontal screen coordinates
+    for (i = 0, j = SCREENWIDTH - 1; i < SCREENWIDTH; i++, j--)
+    {
+	flipscreenwidth[i] = crispy->fliplevels ? j : i;
+    }
+
+    flipviewwidth = flipscreenwidth + (crispy->fliplevels ? (SCREENWIDTH - scaledviewwidth) : 0);
+
+    // [crispy] forcefully initialize the status bar backing screen
+    ST_refreshBackground(true);
 }
 
 

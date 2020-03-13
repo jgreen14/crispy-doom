@@ -25,11 +25,11 @@
 
 #include "m_crispy.h"
 
-multiitem_t multiitem_aspectratio[NUM_ASPECTRATIOS] =
+multiitem_t multiitem_bobfactor[NUM_BOBFACTORS] =
 {
-    {ASPECTRATIO_OFF, "none"},
-    {ASPECTRATIO_4_3, "4:3"},
-    {ASPECTRATIO_16_10, "16:10"},
+    {BOBFACTOR_FULL, "full"},
+    {BOBFACTOR_75, "75%"},
+    {BOBFACTOR_OFF, "off"},
 };
 
 multiitem_t multiitem_brightmaps[NUM_BRIGHTMAPS] =
@@ -43,10 +43,8 @@ multiitem_t multiitem_brightmaps[NUM_BRIGHTMAPS] =
 multiitem_t multiitem_centerweapon[NUM_CENTERWEAPON] =
 {
     {CENTERWEAPON_OFF, "off"},
-    {CENTERWEAPON_HOR, "horizontal"},
-    {CENTERWEAPON_HORVER, "centered"},
+    {CENTERWEAPON_CENTER, "centered"},
     {CENTERWEAPON_BOB, "bobbing"},
-    {CENTERWEAPON_BOB2, "bobbing/2"},
 };
 
 multiitem_t multiitem_coloredhud[NUM_COLOREDHUD] =
@@ -130,6 +128,13 @@ multiitem_t multiitem_sndchannels[4] =
     {32, "32"},
 };
 
+multiitem_t multiitem_widescreen[NUM_WIDESCREEN] =
+{
+    {WIDESCREEN_OFF, "off"},
+    {WIDESCREEN_WIDE, "on, wide HUD"},
+    {WIDESCREEN_COMPACT, "on, compact HUD"},
+};
+
 multiitem_t multiitem_widgets[NUM_WIDGETS] =
 {
     {WIDGETS_OFF, "never"},
@@ -142,29 +147,22 @@ extern void EnableLoadingDisk (void);
 extern void P_SegLengths (boolean contrast_only);
 extern void R_ExecuteSetViewSize (void);
 extern void R_InitLightTables (void);
-extern void S_UpdateSndChannels (void);
 extern void I_ReInitGraphics (int reinit);
+extern void ST_createWidgets(void);
+extern void HU_Start(void);
+extern void M_SizeDisplay(int choice);
 
-static void M_CrispyToggleAspectRatioHook (void)
-{
-    aspect_ratio_correct = (aspect_ratio_correct + 1) % NUM_ASPECTRATIOS;
-
-    // [crispy] re-set logical rendering resolution
-
-    I_ReInitGraphics(REINIT_ASPECTRATIO);
-}
-
-void M_CrispyToggleAspectRatio(int choice)
-{
-    choice = 0;
-
-    crispy->post_rendering_hook = M_CrispyToggleAspectRatioHook;
-}
 
 void M_CrispyToggleAutomapstats(int choice)
 {
     choice = 0;
     crispy->automapstats = (crispy->automapstats + 1) % NUM_WIDGETS;
+}
+
+void M_CrispyToggleBobfactor(int choice)
+{
+    choice = 0;
+    crispy->bobfactor = (crispy->bobfactor + 1) % NUM_BOBFACTORS;
 }
 
 void M_CrispyToggleBrightmaps(int choice)
@@ -185,7 +183,6 @@ void M_CrispyToggleColoredblood(int choice)
 
     if (gameversion == exe_chex)
     {
-	S_StartSound(NULL,sfx_oof);
 	return;
     }
 
@@ -242,7 +239,6 @@ void M_CrispyToggleCrosshairtype(int choice)
 {
     if (!crispy->crosshair)
     {
-	S_StartSound(NULL,sfx_oof);
 	return;
     }
 
@@ -271,7 +267,6 @@ void M_CrispyToggleDemoTimerDir(int choice)
 {
     if (!(crispy->demotimer & DEMOTIMER_PLAYBACK))
     {
-	S_StartSound(NULL,sfx_oof);
 	return;
     }
 
@@ -295,7 +290,6 @@ void M_CrispyToggleFlipcorpses(int choice)
 {
     if (gameversion == exe_chex)
     {
-	S_StartSound(NULL,sfx_oof);
 	return;
     }
 
@@ -307,7 +301,6 @@ void M_CrispyToggleFreeaim(int choice)
 {
     if (!crispy->singleplayer)
     {
-	S_StartSound(NULL,sfx_oof);
 	return;
     }
 
@@ -334,8 +327,19 @@ void M_CrispyToggleFreelook(int choice)
 
 void M_CrispyToggleFullsounds(int choice)
 {
+    int i;
+
     choice = 0;
     crispy->soundfull = !crispy->soundfull;
+
+    // [crispy] weapon sound sources
+    for (i = 0; i < MAXPLAYERS; i++)
+    {
+	if (playeringame[i])
+	{
+	    players[i].so = Crispy_PlayerSO(i);
+	}
+    }
 }
 
 static void M_CrispyToggleHiresHook (void)
@@ -365,7 +369,6 @@ void M_CrispyToggleJumping(int choice)
 {
     if (!crispy->singleplayer)
     {
-	S_StartSound(NULL,sfx_oof);
 	return;
     }
 
@@ -400,7 +403,6 @@ void M_CrispyToggleOverunder(int choice)
 {
     if (!crispy->singleplayer)
     {
-	S_StartSound(NULL,sfx_oof);
 	return;
     }
 
@@ -422,14 +424,13 @@ void M_CrispyTogglePitch(int choice)
 void M_CrispyTogglePlayerCoords(int choice)
 {
     choice = 0;
-    crispy->playercoords = (crispy->playercoords + 1) % NUM_WIDGETS;
+    crispy->playercoords = (crispy->playercoords + 1) % (NUM_WIDGETS - 1); // [crispy] disable "always" setting
 }
 
 void M_CrispyToggleRecoil(int choice)
 {
     if (!crispy->singleplayer)
     {
-	S_StartSound(NULL,sfx_oof);
 	return;
     }
 
@@ -488,6 +489,8 @@ void M_CrispyToggleSoundMono(int choice)
 {
     choice = 0;
     crispy->soundmono = !crispy->soundmono;
+
+    S_UpdateStereoSeparation();
 }
 
 void M_CrispyToggleTranslucency(int choice)
@@ -516,7 +519,6 @@ void M_CrispyToggleVsync(int choice)
 
     if (force_software_renderer)
     {
-	S_StartSound(NULL,sfx_oof);
 	return;
     }
 
@@ -527,4 +529,46 @@ void M_CrispyToggleWeaponSquat(int choice)
 {
     choice = 0;
     crispy->weaponsquat = !crispy->weaponsquat;
+}
+
+void M_CrispyReinitHUDWidgets (void)
+{
+    if (gamestate == GS_LEVEL && gamemap > 0)
+    {
+	// [crispy] re-arrange status bar widgets
+	ST_createWidgets();
+	// [crispy] re-arrange heads-up widgets
+	HU_Start();
+    }
+}
+
+static void M_CrispyToggleWidescreenHook (void)
+{
+    crispy->widescreen = (crispy->widescreen + 1) % NUM_WIDESCREEN;
+
+    // [crispy] no need to re-init when switching from wide to compact
+    if (crispy->widescreen == 1 || crispy->widescreen == 0)
+    {
+	// [crispy] re-initialize screenSize_min
+	M_SizeDisplay(-1);
+	// [crispy] re-initialize framebuffers, textures and renderer
+	I_ReInitGraphics(REINIT_FRAMEBUFFERS | REINIT_TEXTURES | REINIT_ASPECTRATIO);
+	// [crispy] re-calculate framebuffer coordinates
+	R_ExecuteSetViewSize();
+	// [crispy] re-draw bezel
+	R_FillBackScreen();
+	// [crispy] re-calculate disk icon coordinates
+	EnableLoadingDisk();
+	// [crispy] re-calculate automap coordinates
+	AM_ReInit();
+    }
+
+    M_CrispyReinitHUDWidgets();
+}
+
+void M_CrispyToggleWidescreen(int choice)
+{
+    choice = 0;
+
+    crispy->post_rendering_hook = M_CrispyToggleWidescreenHook;
 }

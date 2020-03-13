@@ -52,7 +52,10 @@ patch_t*		sttminus;
 
 void STlib_init(void)
 {
-    sttminus = (patch_t *) W_CacheLumpName(DEH_String("STTMINUS"), PU_STATIC);
+    if (W_CheckNumForName(DEH_String("STTMINUS")) >= 0)
+        sttminus = (patch_t *) W_CacheLumpName(DEH_String("STTMINUS"), PU_STATIC);
+    else
+        sttminus = NULL;
 }
 
 
@@ -97,6 +100,12 @@ STlib_drawNum
     
     int		neg;
 
+    // [crispy] redraw only if necessary
+    if (n->oldnum == num && !refresh)
+    {
+	return;
+    }
+
     n->oldnum = *n->num;
 
     neg = num < 0;
@@ -117,7 +126,7 @@ STlib_drawNum
     if (n->y - ST_Y < 0)
 	I_Error("drawNum: n->y - ST_Y < 0");
 
-    if (screenblocks < CRISPY_HUD || (automapactive && !crispy->automapoverlay))
+    if (screenblocks < CRISPY_HUD || (automapactive && !crispy->automapoverlay && !crispy->widescreen))
     V_CopyRect(x, n->y - ST_Y, st_backing_screen, w*numdigits, h, x, n->y);
 
     // if non-number, do not draw it
@@ -139,7 +148,7 @@ STlib_drawNum
     }
 
     // draw a minus sign if necessary
-    if (neg)
+    if (neg && sttminus)
 	V_DrawPatch(x - 8, n->y, sttminus);
 }
 
@@ -167,6 +176,9 @@ STlib_initPercent
 {
     STlib_initNum(&p->n, x, y, pl, num, on, 3);
     p->p = percent;
+
+    // [crispy] remember previous colorization
+    p->oldtranslation = NULL;
 }
 
 
@@ -177,6 +189,12 @@ STlib_updatePercent
 ( st_percent_t*		per,
   int			refresh )
 {
+    // [crispy] remember previous colorization
+    if (per->oldtranslation != dp_translation)
+    {
+        refresh = true;
+        per->oldtranslation = dp_translation;
+    }
 
     STlib_updateNum(&per->n, refresh); // [crispy] moved here
 
@@ -234,7 +252,7 @@ STlib_updateMultIcon
 	    if (y - ST_Y < 0)
 		I_Error("updateMultIcon: y - ST_Y < 0");
 
-	    if (screenblocks < CRISPY_HUD || (automapactive && !crispy->automapoverlay))
+	    if (screenblocks < CRISPY_HUD || (automapactive && !crispy->automapoverlay && !crispy->widescreen))
 	    V_CopyRect(x, y-ST_Y, st_backing_screen, w, h, x, y);
 	}
 	V_DrawPatch(mi->x, mi->y, mi->p[*mi->inum]);
@@ -287,7 +305,7 @@ STlib_updateBinIcon
 	if (*bi->val)
 	    V_DrawPatch(bi->x, bi->y, bi->p);
 	else
-	    if (screenblocks < CRISPY_HUD || (automapactive && !crispy->automapoverlay))
+	    if (screenblocks < CRISPY_HUD || (automapactive && !crispy->automapoverlay && !crispy->widescreen))
 	    V_CopyRect(x, y-ST_Y, st_backing_screen, w, h, x, y);
 
 	bi->oldval = *bi->val;

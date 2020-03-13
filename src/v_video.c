@@ -19,6 +19,8 @@
 //	Functions to blit a block to the screen.
 //
 
+#include "SDL_version.h" // [crispy]
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -197,7 +199,7 @@ static drawpatchpx_t *const drawpatchpx_a[2][2] = {{drawpatchpx11, drawpatchpx10
 
 static fixed_t dx, dxi, dy, dyi;
 
-static void V_DrawPatchCrispy(int x, int y, patch_t *patch, int r)
+void V_DrawPatch(int x, int y, patch_t *patch)
 { 
     int count;
     int col;
@@ -205,7 +207,6 @@ static void V_DrawPatchCrispy(int x, int y, patch_t *patch, int r)
     pixel_t *desttop;
     pixel_t *dest;
     byte *source;
-    pixel_t *desttop2, *dest2;
     int w;
 
     // [crispy] four different rendering functions
@@ -213,6 +214,7 @@ static void V_DrawPatchCrispy(int x, int y, patch_t *patch, int r)
 
     y -= SHORT(patch->topoffset);
     x -= SHORT(patch->leftoffset);
+    x += DELTAWIDTH; // [crispy] horizontal widescreen offset
 
     // haleyjd 08/28/10: Strife needs silent error checking here.
     if(patchclip_callback)
@@ -235,11 +237,10 @@ static void V_DrawPatchCrispy(int x, int y, patch_t *patch, int r)
 
     col = 0;
     desttop = dest_screen + ((y * dy) >> FRACBITS) * SCREENWIDTH + ((x * dx) >> FRACBITS);
-    desttop2 = dest_screen + (((y + r) * dy) >> FRACBITS) * SCREENWIDTH + (((x + r) * dx) >> FRACBITS);
 
     w = SHORT(patch->width);
 
-    for ( ; col<w << FRACBITS ; x++, col+=dxi, desttop++, desttop2++)
+    for ( ; col<w << FRACBITS ; x++, col+=dxi, desttop++)
     {
         int topdelta = -1;
 
@@ -273,7 +274,6 @@ static void V_DrawPatchCrispy(int x, int y, patch_t *patch, int r)
             top = ((y + topdelta) * dy) >> FRACBITS;
             source = (byte *)column + 3;
             dest = desttop + ((topdelta * dy) >> FRACBITS)*SCREENWIDTH;
-            dest2 = desttop2 + ((topdelta * dy) >> FRACBITS)*SCREENWIDTH;
             count = (column->length * dy) >> FRACBITS;
 
             // [crispy] too low / height
@@ -290,16 +290,6 @@ static void V_DrawPatchCrispy(int x, int y, patch_t *patch, int r)
 
             while (count--)
             {
-                if (r)
-                {
-#ifndef CRISPY_TRUECOLOR
-                    *dest2 = tinttable[*dest2];
-#else
-                    *dest2 = I_BlendDark(*dest2, 0x80);
-#endif
-                    dest2 += SCREENWIDTH;
-                }
-
                 // [crispy] too high
                 if (top++ >= 0)
                 {
@@ -313,33 +303,24 @@ static void V_DrawPatchCrispy(int x, int y, patch_t *patch, int r)
     }
 }
 
-void V_DrawPatch(int x, int y, patch_t *patch)
-{
-    return V_DrawPatchCrispy(x, y, patch, 0);
-}
-
-void V_DrawPatchShadow1(int x, int y, patch_t *patch)
-{
-    return V_DrawPatchCrispy(x, y, patch, 1);
-}
-
-void V_DrawPatchShadow2(int x, int y, patch_t *patch)
-{
-    return V_DrawPatchCrispy(x, y, patch, 2);
-}
-
 void V_DrawPatchFullScreen(patch_t *patch, boolean flipped)
 {
     const short width = SHORT(patch->width);
     const short height = SHORT(patch->height);
 
-    dx = (SCREENWIDTH << FRACBITS) / width;
-    dxi = (width << FRACBITS) / SCREENWIDTH;
+    dx = (HIRESWIDTH << FRACBITS) / width;
+    dxi = (width << FRACBITS) / HIRESWIDTH;
     dy = (SCREENHEIGHT << FRACBITS) / height;
     dyi = (height << FRACBITS) / SCREENHEIGHT;
 
     patch->leftoffset = 0;
     patch->topoffset = 0;
+
+    // [crispy] fill pillarboxes in widescreen mode
+    if (SCREENWIDTH != HIRESWIDTH)
+    {
+        V_DrawFilledBox(0, 0, SCREENWIDTH, SCREENHEIGHT, 0);
+    }
 
     if (flipped)
     {
@@ -350,8 +331,8 @@ void V_DrawPatchFullScreen(patch_t *patch, boolean flipped)
         V_DrawPatch(0, 0, patch);
     }
 
-    dx = (SCREENWIDTH << FRACBITS) / ORIGWIDTH;
-    dxi = (ORIGWIDTH << FRACBITS) / SCREENWIDTH;
+    dx = (HIRESWIDTH << FRACBITS) / ORIGWIDTH;
+    dxi = (ORIGWIDTH << FRACBITS) / HIRESWIDTH;
     dy = (SCREENHEIGHT << FRACBITS) / ORIGHEIGHT;
     dyi = (ORIGHEIGHT << FRACBITS) / SCREENHEIGHT;
 }
@@ -374,6 +355,7 @@ void V_DrawPatchFlipped(int x, int y, patch_t *patch)
  
     y -= SHORT(patch->topoffset); 
     x -= SHORT(patch->leftoffset); 
+    x += DELTAWIDTH; // [crispy] horizontal widescreen offset
 
     // haleyjd 08/28/10: Strife needs silent error checking here.
     if(patchclip_callback)
@@ -871,10 +853,10 @@ void V_DrawRawScreen(pixel_t *raw)
 void V_Init (void) 
 { 
     // [crispy] initialize resolution-agnostic patch drawing
-    if (SCREENWIDTH && SCREENHEIGHT)
+    if (HIRESWIDTH && SCREENHEIGHT)
     {
-        dx = (SCREENWIDTH << FRACBITS) / ORIGWIDTH;
-        dxi = (ORIGWIDTH << FRACBITS) / SCREENWIDTH;
+        dx = (HIRESWIDTH << FRACBITS) / ORIGWIDTH;
+        dxi = (ORIGWIDTH << FRACBITS) / HIRESWIDTH;
         dy = (SCREENHEIGHT << FRACBITS) / ORIGHEIGHT;
         dyi = (ORIGHEIGHT << FRACBITS) / SCREENHEIGHT;
     }
@@ -1060,7 +1042,11 @@ void WritePNGfile(char *filename, pixel_t *data,
     rowbuf = palette; // [crispy] pointer abuse!
 
     png_set_IHDR(ppng, pinfo, width, height,
+#if SDL_VERSION_ATLEAST(2, 0, 5)
+                 8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+#else
                  8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
+#endif
                  PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 /*
     png_set_IHDR(ppng, pinfo, width, height,

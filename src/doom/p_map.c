@@ -646,7 +646,6 @@ P_TryMove
 // the z will be set to the lowest value
 // and false will be returned.
 //
-static sector_t *movingsector;
 boolean P_ThingHeightClip (mobj_t* thing)
 {
     boolean		onfloor;
@@ -663,13 +662,6 @@ boolean P_ThingHeightClip (mobj_t* thing)
     {
 	// walking monsters rise and fall with the floor
 	thing->z = thing->floorz;
-	// [crispy] update player's viewz on sector move
-	if (thing->player && thing->subsector->sector == movingsector)
-	{
-	    extern void P_CalcHeight (player_t* player, boolean safe);
-
-	    P_CalcHeight (thing->player, true);
-	}
     }
     else
     {
@@ -1243,8 +1235,8 @@ P_AimLineAttack
     shootz = t1->z + (t1->height>>1) + 8*FRACUNIT;
 
     // can't shoot outside view angles
-    topslope = (SCREENHEIGHT/2)*FRACUNIT/(SCREENWIDTH/2);	
-    bottomslope = -(SCREENHEIGHT/2)*FRACUNIT/(SCREENWIDTH/2);
+    topslope = (ORIGHEIGHT/2)*FRACUNIT/(ORIGWIDTH/2);
+    bottomslope = -(ORIGHEIGHT/2)*FRACUNIT/(ORIGWIDTH/2);
     
     attackrange = distance;
     linetarget = NULL;
@@ -1546,7 +1538,8 @@ boolean PIT_ChangeSector (mobj_t*	thing)
 	// TODO: Add a check for DEHACKED states
 	P_SetMobjState (thing, (thing->flags & MF_NOBLOOD) ? S_NULL : S_GIBS);
 
-	thing->flags &= ~MF_SOLID;
+    if (gameversion > exe_doom_1_2)
+	    thing->flags &= ~MF_SOLID;
 	thing->height = 0;
 	thing->radius = 0;
 
@@ -1615,7 +1608,6 @@ P_ChangeSector
     nofit = false;
     crushchange = crunch;
 	
-    movingsector = sector;
     // re-check heights for all things near the moving sector
     for (x=sector->blockbox[BOXLEFT] ; x<= sector->blockbox[BOXRIGHT] ; x++)
 	for (y=sector->blockbox[BOXBOTTOM];y<= sector->blockbox[BOXTOP] ; y++)

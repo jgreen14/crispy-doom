@@ -108,6 +108,9 @@ P_SetPsprite
 	    // coordinate set
 	    psp->sx = state->misc1 << FRACBITS;
 	    psp->sy = state->misc2 << FRACBITS;
+	    // [crispy] variable weapon sprite bob
+	    psp->sx2 = psp->sx;
+	    psp->sy2 = psp->sy;
 	}
 	
 	// Call action routine.
@@ -185,6 +188,8 @@ void P_BringUpWeapon (player_t* player)
 
     player->pendingweapon = wp_nochange;
     player->psprites[ps_weapon].sy = WEAPONBOTTOM;
+    // [crispy] squat down weapon sprite
+    player->psprites[ps_weapon].dy = 0;
 
     P_SetPsprite (player, ps_weapon, newstate);
 }
@@ -213,7 +218,7 @@ boolean P_CheckAmmo (player_t* player)
     // only relevant when removing current weapon with TNTWEAPx cheat
     if (!player->weaponowned[player->readyweapon])
     {
-	ammo = 0;
+	ammo = am_clip; // [crispy] at least not am_noammo, see below
 	count = INT_MAX;
     }
 
@@ -248,7 +253,8 @@ boolean P_CheckAmmo (player_t* player)
 	{
 	    player->pendingweapon = wp_shotgun;
 	}
-	else if (player->ammo[am_clip])
+	// [crispy] allow to remove the pistol via TNTWEAP2
+	else if (player->ammo[am_clip] && player->weaponowned[wp_pistol])
 	{
 	    player->pendingweapon = wp_pistol;
 	}
@@ -347,7 +353,7 @@ A_WeaponReady
     
     // check for change
     //  if player is dead, put the weapon away
-    if (player->pendingweapon != wp_nochange || player->health <= 0) // [crispy] negative player health
+    if (player->pendingweapon != wp_nochange || !player->health)
     {
 	// change weapon
 	//  (pending weapon should allready be validated)
@@ -397,7 +403,7 @@ void A_ReFire
     //  (if a weaponchange is pending, let it go through instead)
     if ( (player->cmd.buttons & BT_ATTACK) 
 	 && player->pendingweapon == wp_nochange
-	 && player->health > 0) // [crispy] negative player health
+	 && player->health)
     {
 	player->refire++;
 	P_FireWeapon (player);
@@ -455,7 +461,7 @@ A_Lower
     
     // The old weapon has been lowered off the screen,
     // so change the weapon and start raising it
-    if (player->health <= 0) // [crispy] negative player health
+    if (!player->health)
     {
 	// Player is dead, so keep the weapon off screen.
 	P_SetPsprite (player,  ps_weapon, S_NULL);
@@ -997,6 +1003,61 @@ void P_MovePsprites (player_t* player)
     
     player->psprites[ps_flash].sx = player->psprites[ps_weapon].sx;
     player->psprites[ps_flash].sy = player->psprites[ps_weapon].sy;
+
+    // [crispy] apply bobbing (or centering) to the player's weapon sprite
+    psp = &player->psprites[0];
+    if (psp->state)
+    {
+	// [crispy] don't center vertically during lowering and raising states
+	if (psp->state->misc1 ||
+	    psp->state->action.acp3 == (actionf_p3)A_Lower ||
+	    psp->state->action.acp3 == (actionf_p3)A_Raise)
+	{
+		psp->sx2 = psp->sx;
+		psp->sy2 = psp->sy;
+	}
+	else
+	if (psp->state->action.acp3 == (actionf_p3)A_WeaponReady ||
+	    crispy->centerweapon == CENTERWEAPON_BOB)
+	{
+		angle_t angle = (128 * leveltime) & FINEMASK;
+		psp->sx2 = FRACUNIT + FixedMul(player->bob2, finecosine[angle]);
+		angle &= FINEANGLES / 2 - 1;
+		psp->sy2 = WEAPONTOP + FixedMul(player->bob2, finesine[angle]);
+	}
+	else
+	// [crispy] center the weapon sprite horizontally and push up vertically
+	if (crispy->centerweapon == CENTERWEAPON_CENTER)
+	{
+		psp->sx2 = FRACUNIT;
+		psp->sy2 = WEAPONTOP;
+	}
+    }
+    else
+    {
+	psp->sx2 = psp->sx;
+	psp->sy2 = psp->sy;
+    }
+
+	// [crispy] squat down weapon sprite a bit after hitting the ground
+	if (player->psp_dy_max)
+	{
+		psp->dy -= FRACUNIT;
+
+		if (psp->dy < player->psp_dy_max)
+		{
+			psp->dy = -psp->dy;
+		}
+
+		if (psp->dy == 0)
+		{
+			player->psp_dy_max = 0;
+		}
+	}
+
+	player->psprites[ps_flash].dy = psp->dy;
+	player->psprites[ps_flash].sx2 = psp->sx2;
+	player->psprites[ps_flash].sy2 = psp->sy2;
 }
 
 

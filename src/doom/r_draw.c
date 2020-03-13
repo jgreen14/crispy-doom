@@ -32,9 +32,7 @@
 
 // Needs access to LFB (guess what).
 #include "v_video.h"
-#ifdef CRISPY_TRUECOLOR
 #include "v_trans.h"
-#endif
 
 // State.
 #include "doomstat.h"
@@ -130,7 +128,7 @@ void R_DrawColumn (void)
     // Framebuffer destination address.
     // Use ylookup LUT to avoid multiply with ScreenWidth.
     // Use columnofs LUT for subwindows? 
-    dest = ylookup[dc_yl] + columnofs[dc_x];  
+    dest = ylookup[dc_yl] + columnofs[flipviewwidth[dc_x]];
 
     // Determine scaling,
     //  which is the only mapping to be done.
@@ -271,8 +269,8 @@ void R_DrawColumnLow (void)
     // Blocky mode, need to multiply by 2.
     x = dc_x << 1;
     
-    dest = ylookup[dc_yl] + columnofs[x];
-    dest2 = ylookup[dc_yl] + columnofs[x+1];
+    dest = ylookup[dc_yl] + columnofs[flipviewwidth[x]];
+    dest2 = ylookup[dc_yl] + columnofs[flipviewwidth[x+1]];
     
     fracstep = dc_iscale; 
     frac = dc_texturemid + (dc_yl-centery)*fracstep;
@@ -344,6 +342,11 @@ int	fuzzpos = 0;
 static int fuzzpos_tic;
 void R_SetFuzzPosTic (void)
 {
+	// [crispy] prevent the animation from remaining static
+	if (fuzzpos == fuzzpos_tic)
+	{
+		fuzzpos = (fuzzpos + 1) % FUZZTABLE;
+	}
 	fuzzpos_tic = fuzzpos;
 }
 void R_SetFuzzPosDraw (void)
@@ -393,7 +396,7 @@ void R_DrawFuzzColumn (void)
     }
 #endif
     
-    dest = ylookup[dc_yl] + columnofs[dc_x];
+    dest = ylookup[dc_yl] + columnofs[flipviewwidth[dc_x]];
 
     // Looks familiar.
     fracstep = dc_iscale; 
@@ -477,8 +480,8 @@ void R_DrawFuzzColumnLow (void)
     }
 #endif
     
-    dest = ylookup[dc_yl] + columnofs[x];
-    dest2 = ylookup[dc_yl] + columnofs[x+1];
+    dest = ylookup[dc_yl] + columnofs[flipviewwidth[x]];
+    dest2 = ylookup[dc_yl] + columnofs[flipviewwidth[x+1]];
 
     // Looks familiar.
     fracstep = dc_iscale; 
@@ -564,7 +567,7 @@ void R_DrawTranslatedColumn (void)
 #endif 
 
 
-    dest = ylookup[dc_yl] + columnofs[dc_x]; 
+    dest = ylookup[dc_yl] + columnofs[flipviewwidth[dc_x]];
 
     // Looks familiar.
     fracstep = dc_iscale; 
@@ -613,8 +616,8 @@ void R_DrawTranslatedColumnLow (void)
 #endif 
 
 
-    dest = ylookup[dc_yl] + columnofs[x];
-    dest2 = ylookup[dc_yl] + columnofs[x+1];
+    dest = ylookup[dc_yl] + columnofs[flipviewwidth[x]];
+    dest2 = ylookup[dc_yl] + columnofs[flipviewwidth[x+1]];
 
     // Looks familiar.
     fracstep = dc_iscale; 
@@ -637,9 +640,6 @@ void R_DrawTranslatedColumnLow (void)
     } while (count--); 
 } 
 
-// [crispy] draw translucent column
-extern byte *tranmap;
-
 void R_DrawTLColumn (void)
 {
     int			count;
@@ -661,7 +661,7 @@ void R_DrawTLColumn (void)
     }
 #endif
 
-    dest = ylookup[dc_yl] + columnofs[dc_x];
+    dest = ylookup[dc_yl] + columnofs[flipviewwidth[dc_x]];
 
     fracstep = dc_iscale;
     frac = dc_texturemid + (dc_yl-centery)*fracstep;
@@ -707,8 +707,8 @@ void R_DrawTLColumnLow (void)
     }
 #endif
 
-    dest = ylookup[dc_yl] + columnofs[x];
-    dest2 = ylookup[dc_yl] + columnofs[x+1];
+    dest = ylookup[dc_yl] + columnofs[flipviewwidth[x]];
+    dest2 = ylookup[dc_yl] + columnofs[flipviewwidth[x+1]];
 
     fracstep = dc_iscale;
     frac = dc_texturemid + (dc_yl-centery)*fracstep;
@@ -830,7 +830,7 @@ void R_DrawSpan (void)
          | ((ds_ystep >> 6)  & 0x0000ffff);
 */
 
-    dest = ylookup[ds_y] + columnofs[ds_x1];
+//  dest = ylookup[ds_y] + columnofs[ds_x1];
 
     // We do not check for zero spans here?
     count = ds_x2 - ds_x1;
@@ -847,7 +847,8 @@ void R_DrawSpan (void)
 	// Lookup pixel from flat texture tile,
 	//  re-index using light/colormap.
 	source = ds_source[spot];
-	*dest++ = ds_colormap[ds_brightmap[source]][source];
+	dest = ylookup[ds_y] + columnofs[flipviewwidth[ds_x1++]];
+	*dest = ds_colormap[ds_brightmap[source]][source];
 
 //      position += step;
         ds_xfrac += ds_xstep;
@@ -967,7 +968,7 @@ void R_DrawSpanLow (void)
     ds_x1 <<= 1;
     ds_x2 <<= 1;
 
-    dest = ylookup[ds_y] + columnofs[ds_x1];
+//  dest = ylookup[ds_y] + columnofs[ds_x1];
 
     do
     {
@@ -981,8 +982,10 @@ void R_DrawSpanLow (void)
 	// Lowres/blocky mode does it twice,
 	//  while scale is adjusted appropriately.
 	source = ds_source[spot];
-	*dest++ = ds_colormap[ds_brightmap[source]][source];
-	*dest++ = ds_colormap[ds_brightmap[source]][source];
+	dest = ylookup[ds_y] + columnofs[flipviewwidth[ds_x1++]];
+	*dest = ds_colormap[ds_brightmap[source]][source];
+	dest = ylookup[ds_y] + columnofs[flipviewwidth[ds_x1++]];
+	*dest = ds_colormap[ds_brightmap[source]][source];
 
 //	position += step;
 	ds_xfrac += ds_xstep;
@@ -1069,7 +1072,7 @@ void R_FillBackScreen (void)
 	
     if (background_buffer == NULL)
     {
-        background_buffer = Z_Malloc(SCREENWIDTH * (SCREENHEIGHT - SBARHEIGHT) * sizeof(*background_buffer),
+        background_buffer = Z_Malloc(MAXWIDTH * (MAXHEIGHT - SBARHEIGHT) * sizeof(*background_buffer),
                                      PU_STATIC, NULL);
     }
 

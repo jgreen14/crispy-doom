@@ -115,7 +115,7 @@ static statenum_t P_LatestSafeState(statenum_t state)
 	}
 
 	// [crispy] a state with -1 tics never changes
-	if (states[state].tics == -1)
+	if (states[state].tics == -1 || state == states[state].nextstate)
 	{
 	    break;
 	}
@@ -384,7 +384,10 @@ void P_ZMovement (mobj_t* mo)
 		// and utter appropriate sound.
 		mo->player->deltaviewheight = mo->momz>>3;
 		// [crispy] squat down weapon sprite as well
-		mo->player->psp_dy_max = mo->momz>>2;
+		if (crispy->weaponsquat)
+		{
+			mo->player->psp_dy_max = mo->momz>>2;
+		}
 		// [crispy] center view if not using permanent mouselook
 		if (!crispy->mouselook)
 		    mo->player->centering = true;
@@ -813,6 +816,11 @@ void P_RespawnSpecials (void)
 // [crispy] weapon sound sources
 degenmobj_t muzzles[MAXPLAYERS];
 
+mobj_t *Crispy_PlayerSO (int p)
+{
+	return crispy->soundfull ? (mobj_t *) &muzzles[p] : players[p].mo;
+}
+
 //
 // P_SpawnPlayer
 // Called when a player is spawned on the level.
@@ -868,7 +876,7 @@ void P_SpawnPlayer (mapthing_t* mthing)
     p->viewheight = VIEWHEIGHT;
 
     // [crispy] weapon sound source
-    p->so = crispy->soundfull ? (mobj_t *) &muzzles[mthing->type-1] : p->mo;
+    p->so = Crispy_PlayerSO(mthing->type-1);
 
     // setup gun psprite
     P_SetupPsprites (p);

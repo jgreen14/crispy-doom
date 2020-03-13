@@ -1448,7 +1448,7 @@ static default_t extra_defaults_list[] =
     CONFIG_VARIABLE_KEY(key_menu_nextlevel),
 
     //!
-    // Keyboard shortcut to reload current level.
+    // Keyboard shortcut to restart current level or demo.
     //
 
     CONFIG_VARIABLE_KEY(key_menu_reloadlevel),
@@ -1628,6 +1628,78 @@ static default_t extra_defaults_list[] =
     CONFIG_VARIABLE_KEY(key_nextweapon),
 
     //!
+    // @game heretic
+    //
+    // Key to use "quartz flask" artifact.
+    //
+
+    CONFIG_VARIABLE_KEY(key_arti_quartz),
+
+    //!
+    // @game heretic
+    //
+    // Key to use "mystic urn" artifact.
+    //
+
+    CONFIG_VARIABLE_KEY(key_arti_urn),
+
+    //!
+    // @game heretic
+    //
+    // Key to use "timebomb of the ancients" artifact.
+    //
+
+    CONFIG_VARIABLE_KEY(key_arti_bomb),
+
+    //!
+    // @game heretic
+    //
+    // Key to use "tome of power" artifact.
+    //
+
+    CONFIG_VARIABLE_KEY(key_arti_tome),
+
+    //!
+    // @game heretic
+    //
+    // Key to use "ring of invincibility" artifact.
+    //
+
+    CONFIG_VARIABLE_KEY(key_arti_ring),
+
+    //!
+    // @game heretic
+    //
+    // Key to use "chaos device" artifact.
+    //
+
+    CONFIG_VARIABLE_KEY(key_arti_chaosdevice),
+
+    //!
+    // @game heretic
+    //
+    // Key to use "shadowsphere" artifact.
+    //
+
+    CONFIG_VARIABLE_KEY(key_arti_shadowsphere),
+
+    //!
+    // @game heretic
+    //
+    // Key to use "wings of wrath" artifact.
+    //
+
+    CONFIG_VARIABLE_KEY(key_arti_wings),
+
+    //!
+    // @game heretic
+    //
+    // Key to use "torch" artifact.
+    //
+
+    CONFIG_VARIABLE_KEY(key_arti_torch),
+
+    //!
     // @game hexen
     //
     // Key to use one of each artifact.
@@ -1796,10 +1868,34 @@ static default_t extra_defaults_list[] =
     //!
     // @game doom
     //
+    // Automap overlay mode.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_automapoverlay),
+
+    //!
+    // @game doom
+    //
+    // Automap rotate mode.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_automaprotate),
+
+    //!
+    // @game doom
+    //
     // Show additional level statistics.
     //
 
     CONFIG_VARIABLE_INT(crispy_automapstats),
+
+    //!
+    // @game doom
+    //
+    // Variable player view bob.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_bobfactor),
 
     //!
     // @game doom
@@ -2090,6 +2186,14 @@ static default_t extra_defaults_list[] =
     //
 
     CONFIG_VARIABLE_INT(crispy_weaponsquat),
+
+    //!
+    // @game doom
+    //
+    // Widescreen rendering.
+    //
+
+    CONFIG_VARIABLE_INT(crispy_widescreen),
 };
 
 static default_collection_t extra_defaults =
@@ -2615,11 +2719,14 @@ static char *GetDefaultConfigDir(void)
     // Vanilla Doom and save in the current directory.
 
     char *result;
+    char *copy;
 
     result = SDL_GetPrefPath("", PACKAGE_TARNAME);
     if (result != NULL)
     {
-        return result;
+        copy = M_StringDuplicate(result);
+        SDL_free(result);
+        return copy;
     }
 #endif /* #ifndef _WIN32 */
     return M_StringDuplicate("");

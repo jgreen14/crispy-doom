@@ -220,8 +220,6 @@ EV_DoLockedDoor
     {
       case 99:	// Blue Lock
       case 133:
-	if ( !p )
-	    return 0;
 	if (!p->cards[it_bluecard] && !p->cards[it_blueskull])
 	{
 	    p->message = DEH_String(PD_BLUEO);
@@ -234,8 +232,6 @@ EV_DoLockedDoor
 	
       case 134: // Red Lock
       case 135:
-	if ( !p )
-	    return 0;
 	if (!p->cards[it_redcard] && !p->cards[it_redskull])
 	{
 	    p->message = DEH_String(PD_REDO);
@@ -248,8 +244,6 @@ EV_DoLockedDoor
 	
       case 136:	// Yellow Lock
       case 137:
-	if ( !p )
-	    return 0;
 	if (!p->cards[it_yellowcard] &&
 	    !p->cards[it_yellowskull])
 	{
@@ -304,6 +298,8 @@ EV_DoDoor
 	    door->topheight -= 4*FRACUNIT;
 	    door->direction = -1;
 	    door->speed = VDOORSPEED * 4;
+	    // [crispy] fix door-closing sound playing, even when door is already closed (repeatable walkover trigger)
+	    if (door->sector->ceilingheight - door->sector->floorheight > 0 || !crispy->soundfix)
 	    S_StartSound(&door->sector->soundorg, sfx_bdcls);
 	    break;
 	    
@@ -311,12 +307,16 @@ EV_DoDoor
 	    door->topheight = P_FindLowestCeilingSurrounding(sec);
 	    door->topheight -= 4*FRACUNIT;
 	    door->direction = -1;
+	    // [crispy] fix door-closing sound playing, even when door is already closed (repeatable walkover trigger)
+	    if (door->sector->ceilingheight - door->sector->floorheight > 0 || !crispy->soundfix)
 	    S_StartSound(&door->sector->soundorg, sfx_dorcls);
 	    break;
 	    
 	  case vld_close30ThenOpen:
 	    door->topheight = sec->ceilingheight;
 	    door->direction = -1;
+	    // [crispy] fix door-closing sound playing, even when door is already closed (repeatable walkover trigger)
+	    if (door->sector->ceilingheight - door->sector->floorheight > 0 || !crispy->soundfix)
 	    S_StartSound(&door->sector->soundorg, sfx_dorcls);
 	    break;
 	    
@@ -440,7 +440,7 @@ EV_VerticalDoor
 	    {
 		door->direction = 1;	// go back up
 		// [crispy] play sound effect when the door is opened again while going down
-		if (crispy->soundfix)
+		if (crispy->soundfix && door->thinker.function.acp1 == (actionf_p1) T_VerticalDoor)
 		S_StartSound(&door->sector->soundorg, line->special == 117 ? sfx_bdopn : sfx_doropn);
 	    }
 	    else

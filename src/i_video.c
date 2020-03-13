@@ -50,6 +50,8 @@
 #include "z_zone.h"
 
 int SCREENWIDTH, SCREENHEIGHT, SCREENHEIGHT_4_3;
+int HIRESWIDTH; // [crispy] non-widescreen SCREENWIDTH
+int DELTAWIDTH; // [crispy] horizontal widescreen offset
 
 // These are (1) the window (or the full screen) that our game is rendered to
 // and (2) the renderer that scales the texture (see below) into this window.
@@ -394,7 +396,8 @@ static boolean ToggleFullScreenKeyShortcut(SDL_Keysym *sym)
 #if defined(__MACOSX__)
     flags |= (KMOD_LGUI | KMOD_RGUI);
 #endif
-    return sym->scancode == SDL_SCANCODE_RETURN && (sym->mod & flags) != 0;
+    return (sym->scancode == SDL_SCANCODE_RETURN || 
+            sym->scancode == SDL_SCANCODE_KP_ENTER) && (sym->mod & flags) != 0;
 }
 
 static void I_ToggleFullScreen(void)
@@ -1297,7 +1300,7 @@ static void SetVideoMode(void)
 #ifndef CRISPY_TRUECOLOR
     unsigned int rmask, gmask, bmask, amask;
 #endif
-    int unused_bpp;
+    int bpp;
     int window_flags = 0, renderer_flags = 0;
     SDL_DisplayMode mode;
 
@@ -1399,6 +1402,23 @@ static void SetVideoMode(void)
 
     renderer = SDL_CreateRenderer(screen, -1, renderer_flags);
 
+    // If we could not find a matching render driver,
+    // try again without hardware acceleration.
+
+    if (renderer == NULL && !force_software_renderer)
+    {
+        renderer_flags |= SDL_RENDERER_SOFTWARE;
+        renderer_flags &= ~SDL_RENDERER_PRESENTVSYNC;
+
+        renderer = SDL_CreateRenderer(screen, -1, renderer_flags);
+
+        // If this helped, save the setting for later.
+        if (renderer != NULL)
+        {
+            force_software_renderer = 1;
+        }
+    }
+
     if (renderer == NULL)
     {
         I_Error("Error creating renderer for screen window: %s",
@@ -1458,10 +1478,10 @@ static void SetVideoMode(void)
 
     if (argbbuffer == NULL)
     {
-        SDL_PixelFormatEnumToMasks(pixel_format, &unused_bpp,
+        SDL_PixelFormatEnumToMasks(pixel_format, &bpp,
                                    &rmask, &gmask, &bmask, &amask);
         argbbuffer = SDL_CreateRGBSurface(0,
-                                          SCREENWIDTH, SCREENHEIGHT, 32,
+                                          SCREENWIDTH, SCREENHEIGHT, bpp,
                                           rmask, gmask, bmask, amask);
 #ifdef CRISPY_TRUECOLOR
         SDL_FillRect(argbbuffer, NULL, I_MapRGB(0xff, 0x0, 0x0));
@@ -1504,6 +1524,43 @@ static void SetVideoMode(void)
     CreateUpscaledTexture(true);
 }
 
+// [crispy] re-calculate SCREENWIDTH, SCREENHEIGHT, HIRESWIDTH and DELTAWIDTH
+void I_GetScreenDimensions (void)
+{
+	SDL_DisplayMode mode;
+	int w = 16, h = 10;
+	int ah;
+
+	SCREENWIDTH = ORIGWIDTH << crispy->hires;
+	SCREENHEIGHT = ORIGHEIGHT << crispy->hires;
+
+	HIRESWIDTH = SCREENWIDTH;
+
+	ah = (aspect_ratio_correct == 1) ? (6 * SCREENHEIGHT / 5) : SCREENHEIGHT;
+
+	if (SDL_GetCurrentDisplayMode(video_display, &mode) == 0)
+	{
+		// [crispy] sanity check: really widescreen display?
+		if (mode.w * ah >= mode.h * SCREENWIDTH)
+		{
+			w = mode.w;
+			h = mode.h;
+		}
+	}
+
+	// [crispy] widescreen rendering makes no sense without aspect ratio correction
+	if (crispy->widescreen && aspect_ratio_correct)
+	{
+		SCREENWIDTH = w * ah / h;
+		// [crispy] make sure SCREENWIDTH is an integer multiple of 4 ...
+		SCREENWIDTH = (SCREENWIDTH + 3) & (int)~3;
+		// [crispy] ... but never exceeds MAXWIDTH (array size!)
+		SCREENWIDTH = MIN(SCREENWIDTH, MAXWIDTH);
+	}
+
+	DELTAWIDTH = ((SCREENWIDTH - HIRESWIDTH) >> crispy->hires) / 2;
+}
+
 void I_InitGraphics(void)
 {
     SDL_Event dummy;
@@ -1544,18 +1601,8 @@ void I_InitGraphics(void)
     }
 
     // [crispy] run-time variable high-resolution rendering
-    if (crispy->hires)
-    {
-        SCREENWIDTH = MAXWIDTH;
-        SCREENHEIGHT = MAXHEIGHT;
-        SCREENHEIGHT_4_3 = MAXHEIGHT_4_3;
-    }
-    else
-    {
-        SCREENWIDTH = ORIGWIDTH;
-        SCREENHEIGHT = ORIGHEIGHT;
-        SCREENHEIGHT_4_3 = ORIGHEIGHT_4_3;
-    }
+    I_GetScreenDimensions();
+
 #ifndef CRISPY_TRUECOLOR
     blit_rect.w = SCREENWIDTH;
     blit_rect.h = SCREENHEIGHT;
@@ -1566,7 +1613,7 @@ void I_InitGraphics(void)
 
     if (aspect_ratio_correct == 1)
     {
-        actualheight = SCREENHEIGHT_4_3;
+        actualheight = 6 * SCREENHEIGHT / 5;
     }
     else
     {
@@ -1641,18 +1688,8 @@ void I_ReInitGraphics (int reinit)
 		unsigned int rmask, gmask, bmask, amask;
 		int unused_bpp;
 
-		if (crispy->hires)
-		{
-			SCREENWIDTH = MAXWIDTH;
-			SCREENHEIGHT = MAXHEIGHT;
-			SCREENHEIGHT_4_3 = MAXHEIGHT_4_3;
-		}
-		else
-		{
-			SCREENWIDTH = ORIGWIDTH;
-			SCREENHEIGHT = ORIGHEIGHT;
-			SCREENHEIGHT_4_3 = ORIGHEIGHT_4_3;
-		}
+		I_GetScreenDimensions();
+
 #ifndef CRISPY_TRUECOLOR
 		blit_rect.w = SCREENWIDTH;
 		blit_rect.h = SCREENHEIGHT;
@@ -1731,7 +1768,7 @@ void I_ReInitGraphics (int reinit)
 	{
 		if (aspect_ratio_correct == 1)
 		{
-			actualheight = SCREENHEIGHT_4_3;
+			actualheight = 6 * SCREENHEIGHT / 5;
 		}
 		else
 		{
@@ -1803,10 +1840,14 @@ void I_RenderReadPixels(byte **data, int *w, int *h, int *p)
 	}
 
 	// [crispy] native PNG pixel format
+#if SDL_VERSION_ATLEAST(2, 0, 5)
+	png_format = SDL_PIXELFORMAT_RGB24;
+#else
 #if SDL_BYTEORDER == SDL_LIL_ENDIAN
 	png_format = SDL_PIXELFORMAT_ABGR8888;
 #else
 	png_format = SDL_PIXELFORMAT_RGBA8888;
+#endif
 #endif
 	format = SDL_AllocFormat(png_format);
 	temp = rect.w * format->BytesPerPixel; // [crispy] pitch

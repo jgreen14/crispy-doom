@@ -206,13 +206,13 @@ static void saveg_writep(const void *p)
 static void saveg_read_mapthing_t(mapthing_t *str)
 {
     // short x;
-    str->x = crispy->fliplevels ? -saveg_read16() : saveg_read16();
+    str->x = saveg_read16();
 
     // short y;
     str->y = saveg_read16();
 
     // short angle;
-    str->angle = crispy->fliplevels ? (180 - saveg_read16()) : saveg_read16();
+    str->angle = saveg_read16();
 
     // short type;
     str->type = saveg_read16();
@@ -224,13 +224,13 @@ static void saveg_read_mapthing_t(mapthing_t *str)
 static void saveg_write_mapthing_t(mapthing_t *str)
 {
     // short x;
-    saveg_write16(crispy->fliplevels ? -str->x : str->x);
+    saveg_write16(str->x);
 
     // short y;
     saveg_write16(str->y);
 
     // short angle;
-    saveg_write16(crispy->fliplevels ? (180 - str->angle) : str->angle);
+    saveg_write16(str->angle);
 
     // short type;
     saveg_write16(str->type);
@@ -304,7 +304,7 @@ static void saveg_read_mobj_t(mobj_t *str)
     saveg_read_thinker_t(&str->thinker);
 
     // fixed_t x;
-    str->x = crispy->fliplevels ? -saveg_read32() : saveg_read32();
+    str->x = saveg_read32();
 
     // fixed_t y;
     str->y = saveg_read32();
@@ -319,7 +319,7 @@ static void saveg_read_mobj_t(mobj_t *str)
     str->sprev = saveg_readp();
 
     // angle_t angle;
-    str->angle = crispy->fliplevels ? (ANG180 - saveg_read32()) : saveg_read32();
+    str->angle = saveg_read32();
 
     // spritenum_t sprite;
     str->sprite = saveg_read_enum();
@@ -349,7 +349,7 @@ static void saveg_read_mobj_t(mobj_t *str)
     str->height = saveg_read32();
 
     // fixed_t momx;
-    str->momx = crispy->fliplevels ? -saveg_read32() : saveg_read32();
+    str->momx = saveg_read32();
 
     // fixed_t momy;
     str->momy = saveg_read32();
@@ -400,6 +400,7 @@ static void saveg_read_mobj_t(mobj_t *str)
     {
         str->player = &players[pl - 1];
         str->player->mo = str;
+        str->player->so = Crispy_PlayerSO(pl - 1); // [crispy] weapon sound sources
     }
     else
     {
@@ -468,7 +469,7 @@ static void saveg_write_mobj_t(mobj_t *str)
     saveg_write_thinker_t(&str->thinker);
 
     // fixed_t x;
-    saveg_write32(crispy->fliplevels ? -str->x : str->x);
+    saveg_write32(str->x);
 
     // fixed_t y;
     saveg_write32(str->y);
@@ -483,7 +484,7 @@ static void saveg_write_mobj_t(mobj_t *str)
     saveg_writep(str->sprev);
 
     // angle_t angle;
-    saveg_write32(crispy->fliplevels ? (ANG180 - str->angle) : str->angle);
+    saveg_write32(str->angle);
 
     // spritenum_t sprite;
     saveg_write_enum(str->sprite);
@@ -513,7 +514,7 @@ static void saveg_write_mobj_t(mobj_t *str)
     saveg_write32(str->height);
 
     // fixed_t momx;
-    saveg_write32(crispy->fliplevels ? -str->momx : str->momx);
+    saveg_write32(str->momx);
 
     // fixed_t momy;
     saveg_write32(str->momy);
@@ -658,6 +659,11 @@ static void saveg_read_pspdef_t(pspdef_t *str)
 
     // fixed_t sy;
     str->sy = saveg_read32();
+
+    // [crispy] variable weapon sprite bob
+    str->dy = 0;
+    str->sx2 = str->sx;
+    str->sy2 = str->sy;
 }
 
 static void saveg_write_pspdef_t(pspdef_t *str)
@@ -710,9 +716,13 @@ static void saveg_read_player_t(player_t *str)
 
     // fixed_t bob;
     str->bob = saveg_read32();
+    // [crispy] variable player view bob
+    str->bob2 = str->bob;
 
     // int health;
     str->health = saveg_read32();
+    // [crispy] negative player health
+    str->neghealth = str->health;
 
     // int armorpoints;
     str->armorpoints = saveg_read32();

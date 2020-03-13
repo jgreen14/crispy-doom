@@ -27,6 +27,7 @@
 
 #include "deh_main.h"
 #include "deh_misc.h"
+#include "deh_bexpars.h" // [crispy] bex_pars[]
 
 #include "z_zone.h"
 #include "f_finale.h"
@@ -38,6 +39,7 @@
 #include "i_system.h"
 #include "i_timer.h"
 #include "i_input.h"
+#include "i_swap.h"
 #include "i_video.h"
 
 #include "p_setup.h"
@@ -134,6 +136,7 @@ int             totalleveltimes;        // [crispy] CPhipps - total time for all
 int             demostarttic;           // [crispy] fix revenant internal demo bug
  
 char           *demoname;
+char           *orig_demoname; // [crispy] the name originally chosen for the demo, i.e. without "-00000"
 boolean         demorecording; 
 boolean         longtics;               // cph's doom 1.91 longtics hack
 boolean         lowres_turn;            // low resolution turning for longtics
@@ -763,6 +766,12 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
 	cmd->buttons = BT_SPECIAL | BTS_SAVEGAME | (savegameslot<<BTS_SAVESHIFT); 
     } 
 
+    if (crispy->fliplevels)
+    {
+	cmd->angleturn = -cmd->angleturn;
+	cmd->sidemove = -cmd->sidemove;
+    }
+
     // low-res turning
 
     if (lowres_turn)
@@ -1314,7 +1323,7 @@ void G_PlayerFinishLevel (int player)
     p->centering =
     p->jumpTics =
     p->recoilpitch = p->oldrecoilpitch =
-    p->psp_dy = p->psp_dy_max = 0;
+    p->psp_dy_max = 0;
 } 
  
 
@@ -1348,6 +1357,8 @@ void G_PlayerReborn (int player)
     p->usedown = p->attackdown = true;	// don't do anything immediately 
     p->playerstate = PST_LIVE;       
     p->health = deh_initial_health;     // Use dehacked value
+    // [crispy] negative player health
+    p->neghealth = p->health;
     p->readyweapon = p->pendingweapon = wp_pistol; 
     p->weaponowned[wp_fist] = true; 
     p->weaponowned[wp_pistol] = true; 
@@ -1571,12 +1582,16 @@ void G_ScreenShot (void)
 
 
 // DOOM Par Times
-int pars[4][10] = 
+int pars[6][10] =
 { 
     {0}, 
     {0,30,75,120,90,165,180,180,30,165}, 
     {0,90,90,90,120,90,360,240,30,170}, 
     {0,90,45,90,150,90,90,165,30,135} 
+    // [crispy] Episode 4 par times from the BFG Edition
+   ,{0,165,255,135,150,180,390,135,360,180}
+    // [crispy] Episode 5 par times from Sigil v1.21
+   ,{0,90,150,360,420,780,420,780,300,660}
 }; 
 
 // DOOM II Par Times
@@ -1588,12 +1603,6 @@ int cpars[32] =
     120,30					// 31-32
 };
  
-// [crispy] Episode 4 par times from the BFG Edition
-static int e4pars[10] =
-{
-    0,165,255,135,150,180,390,135,360,180
-};
-
 // [crispy] No Rest For The Living par times from the BFG Edition
 static int npars[9] =
 {
@@ -1629,7 +1638,6 @@ void G_SecretExitLevel (void)
 void G_DoCompleted (void) 
 { 
     int             i; 
-    extern int bex_pars[4][10], bex_cpars[32]; // [crispy] support [PARS] sections in BEX files
 	 
     gameaction = ga_nothing; 
  
@@ -1780,26 +1788,29 @@ void G_DoCompleted (void)
     wminfo.maxsecret = totalsecret; 
     wminfo.maxfrags = 0; 
 
-    // [crispy] single player par times for NRFTL
-    if (gamemission == pack_nerve && crispy->singleplayer)
-    {
-        wminfo.partime = TICRATE*npars[gamemap-1];
-    }
-    else
     // Set par time. Exceptions are added for purposes of
     // statcheck regression testing.
     if (gamemode == commercial)
     {
-        // map33 has no official time: initialize to zero
+        // map33 reads its par time from beyond the cpars[] array
         if (gamemap == 33)
         {
-            wminfo.partime = 0;
+            int cpars32;
+
+            memcpy(&cpars32, DEH_String(GAMMALVL0), sizeof(int));
+            cpars32 = LONG(cpars32);
+
+            wminfo.partime = TICRATE*cpars32;
         }
-        else
         // [crispy] support [PARS] sections in BEX files
-        if (bex_cpars[gamemap-1])
+        else if (bex_cpars[gamemap-1])
         {
             wminfo.partime = TICRATE*bex_cpars[gamemap-1];
+        }
+        // [crispy] single player par times for NRFTL
+        else if (gamemission == pack_nerve && crispy->singleplayer)
+        {
+            wminfo.partime = TICRATE*npars[gamemap-1];
         }
         else
         {
@@ -1808,7 +1819,11 @@ void G_DoCompleted (void)
     }
     // Doom episode 4 doesn't have a par time, so this
     // overflows into the cpars array.
-    else if (gameepisode < 4)
+    else if (gameepisode < 4 ||
+        // [crispy] single player par times for episode 4
+        (gameepisode == 4 && crispy->singleplayer) ||
+        // [crispy] par times for Sigil
+        gameepisode == 5)
     {
         // [crispy] support [PARS] sections in BEX files
         if (bex_pars[gameepisode][gamemap])
@@ -1817,16 +1832,6 @@ void G_DoCompleted (void)
         }
         else
         wminfo.partime = TICRATE*pars[gameepisode][gamemap];
-    }
-    // [crispy] single player par times for episode 4
-    else if (gameepisode == 4 && crispy->singleplayer)
-    {
-        wminfo.partime = TICRATE*e4pars[gamemap];
-    }
-    // [crispy] use episode 3 par times for Sigil's episode 5
-    else if (gameepisode == 5)
-    {
-        wminfo.partime = TICRATE*pars[3][gamemap];
     }
     else
     {
@@ -1857,7 +1862,11 @@ void G_DoCompleted (void)
     viewactive = false; 
     automapactive = false; 
 
+    // [crispy] no statdump output for ExM8
+    if (gamemode == commercial || gamemap != 8)
+    {
     StatCopy(&wminfo);
+    }
  
     WI_Start (&wminfo); 
 } 
@@ -2185,6 +2194,16 @@ G_DeferedInitNew
     d_map = map; 
     G_ClearSavename();
     gameaction = ga_newgame; 
+
+    // [crispy] if a new game is started during demo recording, start a new demo
+    if (demorecording)
+    {
+	G_CheckDemoStatus();
+	Z_Free(demoname);
+
+	G_RecordDemo(orig_demoname);
+	G_BeginRecording();
+    }
 } 
 
 
@@ -2344,7 +2363,8 @@ G_InitNew
 
     // [crispy] CPhipps - total time for all completed levels
     totalleveltimes = 0;
-    demostarttic = 0; // [crispy] fix revenant internal demo bug
+    defdemotics = 0;
+    demostarttic = gametic; // [crispy] fix revenant internal demo bug
 
     viewactive = true;
 
@@ -2460,12 +2480,6 @@ void G_ReadDemoTiccmd (ticcmd_t* cmd)
 
     cmd->buttons = (unsigned char)*demo_p++; 
 
-    if (crispy->fliplevels)
-    {
-	cmd->sidemove *= (const signed char) -1;
-	cmd->angleturn *= (const short) -1;
-    }
-
     // [crispy] increase demo tics counter
     // applies to both recording and playback,
     // because G_WriteDemoTiccmd() calls G_ReadDemoTiccmd() once
@@ -2507,12 +2521,6 @@ static void IncreaseDemoBuffer(void)
 void G_WriteDemoTiccmd (ticcmd_t* cmd) 
 { 
     byte *demo_start;
-
-    if (crispy->fliplevels)
-    {
-	cmd->sidemove *= (const signed char) -1;
-	cmd->angleturn *= (const short) -1;
-    }
 
     if (gamekeydown[key_demo_quit])           // press q to end demo recording 
 	G_CheckDemoStatus (); 
@@ -2572,7 +2580,16 @@ void G_RecordDemo (char *name)
     size_t demoname_size;
     int i;
     int maxsize;
+
+    // [crispy] demo file name suffix counter
+    static unsigned int j = 0;
     FILE *fp = NULL;
+
+    // [crispy] the name originally chosen for the demo, i.e. without "-00000"
+    if (!orig_demoname)
+    {
+	orig_demoname = name;
+    }
 
     usergame = false;
     demoname_size = strlen(name) + 5 + 6; // [crispy] + 6 for "-00000"
@@ -2580,9 +2597,9 @@ void G_RecordDemo (char *name)
     M_snprintf(demoname, demoname_size, "%s.lmp", name);
 
     // [crispy] prevent overriding demos by adding a file name suffix
-    for (i = 0; i <= 99999 && (fp = fopen(demoname, "rb")) != NULL; i++)
+    for ( ; j <= 99999 && (fp = fopen(demoname, "rb")) != NULL; j++)
     {
-	M_snprintf(demoname, demoname_size, "%s-%05d.lmp", name, i);
+	M_snprintf(demoname, demoname_size, "%s-%05d.lmp", name, j);
 	fclose (fp);
     }
 
@@ -2610,8 +2627,6 @@ int G_VanillaVersionCode(void)
 {
     switch (gameversion)
     {
-        case exe_doom_1_2:
-            I_Error("Doom 1.2 does not have a version code!");
         case exe_doom_1_666:
             return 106;
         case exe_doom_1_7:
@@ -2646,7 +2661,7 @@ void G_BeginRecording (void)
     {
         *demo_p++ = DOOM_191_VERSION;
     }
-    else
+    else if (gameversion > exe_doom_1_2)
     {
         *demo_p++ = G_VanillaVersionCode();
     }
@@ -2654,11 +2669,14 @@ void G_BeginRecording (void)
     *demo_p++ = gameskill; 
     *demo_p++ = gameepisode; 
     *demo_p++ = gamemap; 
-    *demo_p++ = deathmatch; 
-    *demo_p++ = respawnparm;
-    *demo_p++ = fastparm;
-    *demo_p++ = nomonsters;
-    *demo_p++ = consoleplayer;
+    if (longtics || gameversion > exe_doom_1_2)
+    {
+        *demo_p++ = deathmatch; 
+        *demo_p++ = respawnparm;
+        *demo_p++ = fastparm;
+        *demo_p++ = nomonsters;
+        *demo_p++ = consoleplayer;
+    }
 	 
     for (i=0 ; i<MAXPLAYERS ; i++) 
 	*demo_p++ = playeringame[i]; 		 
@@ -2730,6 +2748,7 @@ void G_DoPlayDemo (void)
     skill_t skill;
     int i, lumpnum, episode, map;
     int demoversion;
+    boolean olddemo = false;
     int lumplength; // [crispy]
 
     // [crispy] in demo continue mode free the obsolete demo buffer
@@ -2755,6 +2774,12 @@ void G_DoPlayDemo (void)
 
     demoversion = *demo_p++;
 
+    if (demoversion >= 0 && demoversion <= 4)
+    {
+        olddemo = true;
+        demo_p--;
+    }
+
     longtics = false;
 
     // Longtics demos use the modified format that is generated by cph's
@@ -2764,7 +2789,8 @@ void G_DoPlayDemo (void)
     {
         longtics = true;
     }
-    else if (demoversion != G_VanillaVersionCode())
+    else if (demoversion != G_VanillaVersionCode() &&
+             !(gameversion <= exe_doom_1_2 && olddemo))
     {
         const char *message = "Demo is from a different game version!\n"
                               "(read %i, should be %i)\n"
@@ -2793,12 +2819,24 @@ void G_DoPlayDemo (void)
     skill = *demo_p++; 
     episode = *demo_p++; 
     map = *demo_p++; 
-    deathmatch = *demo_p++;
-    respawnparm = *demo_p++;
-    fastparm = *demo_p++;
-    nomonsters = *demo_p++;
-    consoleplayer = *demo_p++;
-	
+    if (!olddemo)
+    {
+        deathmatch = *demo_p++;
+        respawnparm = *demo_p++;
+        fastparm = *demo_p++;
+        nomonsters = *demo_p++;
+        consoleplayer = *demo_p++;
+    }
+    else
+    {
+        deathmatch = 0;
+        respawnparm = 0;
+        fastparm = 0;
+        nomonsters = 0;
+        consoleplayer = 0;
+    }
+    
+        
     for (i=0 ; i<MAXPLAYERS ; i++) 
 	playeringame[i] = *demo_p++; 
 
@@ -2958,7 +2996,15 @@ boolean G_CheckDemoStatus (void)
 	M_WriteFile (demoname, demobuffer, demo_p - demobuffer); 
 	Z_Free (demobuffer); 
 	demorecording = false; 
+	// [crispy] if a new game is started during demo recording, start a new demo
+	if (gameaction != ga_newgame)
+	{
 	I_Error ("Demo %s recorded",demoname); 
+	}
+	else
+	{
+	    fprintf(stderr, "Demo %s recorded\n",demoname);
+	}
     } 
 	 
     return false; 

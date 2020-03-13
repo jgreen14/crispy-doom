@@ -138,75 +138,77 @@ extern boolean inhelpscreens; // [crispy] prevent palette changes
 //       into a buffer,
 //       or into the frame buffer?
 
+#define HORIZDELTA (crispy->widescreen == 1 ? DELTAWIDTH : 0)
+
 // AMMO number pos.
 #define ST_AMMOWIDTH		3	
-#define ST_AMMOX			44
+#define ST_AMMOX			(44 - HORIZDELTA)
 #define ST_AMMOY			171
 
 // HEALTH number pos.
 #define ST_HEALTHWIDTH		3	
-#define ST_HEALTHX			90
+#define ST_HEALTHX			(90 - HORIZDELTA)
 #define ST_HEALTHY			171
 
 // Weapon pos.
-#define ST_ARMSX			111
+#define ST_ARMSX			(111 - HORIZDELTA)
 #define ST_ARMSY			172
-#define ST_ARMSBGX			104
+#define ST_ARMSBGX			(104 - HORIZDELTA)
 #define ST_ARMSBGY			168
 #define ST_ARMSXSPACE		12
 #define ST_ARMSYSPACE		10
 
 // Frags pos.
-#define ST_FRAGSX			138
+#define ST_FRAGSX			(138 - HORIZDELTA)
 #define ST_FRAGSY			171	
 #define ST_FRAGSWIDTH		2
 
 // ARMOR number pos.
 #define ST_ARMORWIDTH		3
-#define ST_ARMORX			221
+#define ST_ARMORX			(221 + HORIZDELTA)
 #define ST_ARMORY			171
 
 // Key icon positions.
 #define ST_KEY0WIDTH		8
 #define ST_KEY0HEIGHT		5
-#define ST_KEY0X			239
+#define ST_KEY0X			(239 + HORIZDELTA)
 #define ST_KEY0Y			171
 #define ST_KEY1WIDTH		ST_KEY0WIDTH
-#define ST_KEY1X			239
+#define ST_KEY1X			(239 + HORIZDELTA)
 #define ST_KEY1Y			181
 #define ST_KEY2WIDTH		ST_KEY0WIDTH
-#define ST_KEY2X			239
+#define ST_KEY2X			(239 + HORIZDELTA)
 #define ST_KEY2Y			191
 
 // Ammunition counter.
 #define ST_AMMO0WIDTH		3
 #define ST_AMMO0HEIGHT		6
-#define ST_AMMO0X			288
+#define ST_AMMO0X			(288 + HORIZDELTA)
 #define ST_AMMO0Y			173
 #define ST_AMMO1WIDTH		ST_AMMO0WIDTH
-#define ST_AMMO1X			288
+#define ST_AMMO1X			(288 + HORIZDELTA)
 #define ST_AMMO1Y			179
 #define ST_AMMO2WIDTH		ST_AMMO0WIDTH
-#define ST_AMMO2X			288
+#define ST_AMMO2X			(288 + HORIZDELTA)
 #define ST_AMMO2Y			191
 #define ST_AMMO3WIDTH		ST_AMMO0WIDTH
-#define ST_AMMO3X			288
+#define ST_AMMO3X			(288 + HORIZDELTA)
 #define ST_AMMO3Y			185
 
 // Indicate maximum ammunition.
 // Only needed because backpack exists.
 #define ST_MAXAMMO0WIDTH		3
 #define ST_MAXAMMO0HEIGHT		5
-#define ST_MAXAMMO0X		314
+#define ST_MAXAMMO0X		(314 + HORIZDELTA)
 #define ST_MAXAMMO0Y		173
 #define ST_MAXAMMO1WIDTH		ST_MAXAMMO0WIDTH
-#define ST_MAXAMMO1X		314
+#define ST_MAXAMMO1X		(314 + HORIZDELTA)
 #define ST_MAXAMMO1Y		179
 #define ST_MAXAMMO2WIDTH		ST_MAXAMMO0WIDTH
-#define ST_MAXAMMO2X		314
+#define ST_MAXAMMO2X		(314 + HORIZDELTA)
 #define ST_MAXAMMO2Y		191
 #define ST_MAXAMMO3WIDTH		ST_MAXAMMO0WIDTH
-#define ST_MAXAMMO3X		314
+#define ST_MAXAMMO3X		(314 + HORIZDELTA)
 #define ST_MAXAMMO3Y		185
 
 // pistol
@@ -293,6 +295,11 @@ static st_stateenum_t	st_gamestate;
 // whether left-side main status bar is active
 static boolean		st_statusbaron;
 
+// [crispy] distinguish classic status bar with background and player face from Crispy HUD
+static boolean		st_crispyhud;
+static boolean		st_classicstatusbar;
+static boolean		st_statusbarface;
+
 // whether status bar chat is active
 static boolean		st_chat;
 
@@ -313,6 +320,9 @@ static boolean		st_fragson;
 
 // main bar left
 static patch_t*		sbar;
+
+// main bar right, for doom 1.0
+static patch_t*		sbarr;
 
 // 0-9, tall numbers
 static patch_t*		tallnum[10];
@@ -419,6 +429,10 @@ cheatseq_t cheat_choppers = CHEAT("idchoppers", 0);
 cheatseq_t cheat_clev = CHEAT("idclev", 2);
 cheatseq_t cheat_mypos = CHEAT("idmypos", 0);
 
+// [crispy] pseudo cheats to eat up the first digit typed after a cheat expecting two parameters
+cheatseq_t cheat_mus1 = CHEAT("idmus", 1);
+cheatseq_t cheat_clev1 = CHEAT("idclev", 1);
+
 // [crispy] new cheats
 cheatseq_t cheat_weapon = CHEAT("tntweap", 1);
 cheatseq_t cheat_massacre = CHEAT("tntem", 0); // [crispy] PrBoom+
@@ -457,17 +471,18 @@ static inline int cht_CheckCheatSP (cheatseq_t *cht, char key)
 //
 void ST_Stop(void);
 
-void ST_refreshBackground(void)
+void ST_refreshBackground(boolean force)
 {
 
-    if (screenblocks >= CRISPY_HUD && !automapactive)
-        return;
-
-    if (st_statusbaron)
+    if (st_classicstatusbar || force)
     {
         V_UseBuffer(st_backing_screen);
 
 	V_DrawPatch(ST_X, 0, sbar);
+
+	// draw right side of bar if needed (Doom 1.0)
+	if (sbarr)
+	    V_DrawPatch(ST_ARMSBGX, 0, sbarr);
 
 	// [crispy] back up arms widget background
 	if (!deathmatch)
@@ -478,6 +493,7 @@ void ST_refreshBackground(void)
 
         V_RestoreBuffer();
 
+	if (!force)
 	V_CopyRect(ST_X, 0, st_backing_screen, ST_WIDTH, ST_HEIGHT, ST_X, ST_Y);
     }
 
@@ -624,6 +640,30 @@ static boolean WeaponAvailable (int w)
 	return true;
 }
 
+// [crispy] give or take backpack
+static void GiveBackpack (boolean give)
+{
+	int i;
+
+	if (give && !plyr->backpack)
+	{
+		for (i = 0; i < NUMAMMO; i++)
+		{
+			plyr->maxammo[i] *= 2;
+		}
+		plyr->backpack = true;
+	}
+	else
+	if (!give && plyr->backpack)
+	{
+		for (i = 0; i < NUMAMMO; i++)
+		{
+			plyr->maxammo[i] /= 2;
+		}
+		plyr->backpack = false;
+	}
+}
+
 // Respond to keyboard input events,
 //  intercept cheats.
 boolean
@@ -699,12 +739,7 @@ ST_Responder (event_t* ev)
 	plyr->armortype = deh_idfa_armor_class;
 	
 	// [crispy] give backpack
-	if (!plyr->backpack)
-	{
-	    for (i=0 ; i<NUMAMMO ; i++)
-		plyr->maxammo[i] *= 2;
-	    plyr->backpack = true;
-	}
+	GiveBackpack(true);
 
 	for (i=0;i<NUMWEAPONS;i++)
 	 if (WeaponAvailable(i)) // [crispy] only give available weapons
@@ -725,12 +760,7 @@ ST_Responder (event_t* ev)
 	plyr->armortype = deh_idkfa_armor_class;
 	
 	// [crispy] give backpack
-	if (!plyr->backpack)
-	{
-	    for (i=0 ; i<NUMAMMO ; i++)
-		plyr->maxammo[i] *= 2;
-	    plyr->backpack = true;
-	}
+	GiveBackpack(true);
 
 	for (i=0;i<NUMWEAPONS;i++)
 	 if (WeaponAvailable(i)) // [crispy] only give available weapons
@@ -766,6 +796,8 @@ ST_Responder (event_t* ev)
 	if (buf[0] == '0' && buf[1] == '0')
 	{
 	  S_ChangeMusic(0, 2);
+	  // [crispy] eat key press, i.e. don't change weapon upon music change
+	  return true;
 	}
 	else
 	// [JN] Fixed: using a proper IDMUS selection for shareware
@@ -782,7 +814,11 @@ ST_Responder (event_t* ev)
 	  if (musnum < mus_runnin || musnum >= NUMMUSIC)
 	    plyr->message = DEH_String(STSTR_NOMUS);
 	  else
+	  {
 	    S_ChangeMusic(musnum, 1);
+	    // [crispy] eat key press, i.e. don't change weapon upon music change
+	    return true;
+	  }
 	}
 	else
 	{
@@ -797,11 +833,21 @@ ST_Responder (event_t* ev)
 	      S_music[musnum].lumpnum == -1)
 	    plyr->message = DEH_String(STSTR_NOMUS);
 	  else
+	  {
 	    S_ChangeMusic(musnum, 1);
+	    // [crispy] eat key press, i.e. don't change weapon upon music change
+	    return true;
+	  }
 	}
+      }
+      // [crispy] eat up the first digit typed after a cheat expecting two parameters
+      else if (cht_CheckCheat(&cheat_mus1, ev->data2))
+      {
+	char buf[2];
 
-      // [crispy] eat key press, i.e. don't change weapon upon music change
-      return true;
+	cht_GetParam(&cheat_mus1, buf);
+
+	return isdigit(buf[0]);
       }
       // [crispy] allow both idspispopd and idclip cheats in all gamemissions
       else if ( ( /* logical_gamemission == doom
@@ -839,6 +885,7 @@ ST_Responder (event_t* ev)
       if (cht_CheckCheatSP(&cheat_powerup[7], ev->data2))
       {
 	memset(plyr->powers, 0, sizeof(plyr->powers));
+	plyr->mo->flags &= ~MF_SHADOW; // [crispy] cancel invisibility
 	plyr->message = DEH_String(STSTR_BEHOLDX);
       }
       
@@ -967,6 +1014,35 @@ ST_Responder (event_t* ev)
 	cht_GetParam(&cheat_weapon, buf);
 	w = *buf - '1';
 
+	// [crispy] TNTWEAP0 takes away all weapons and ammo except for the pistol and 50 bullets
+	if (w == -1)
+	{
+	    GiveBackpack(false);
+	    plyr->powers[pw_strength] = 0;
+
+	    for (i = 0; i < NUMWEAPONS; i++)
+	    {
+		oldweaponsowned[i] = plyr->weaponowned[i] = false;
+	    }
+	    oldweaponsowned[wp_fist] = plyr->weaponowned[wp_fist] = true;
+	    oldweaponsowned[wp_pistol] = plyr->weaponowned[wp_pistol] = true;
+
+	    for (i = 0; i < NUMAMMO; i++)
+	    {
+		plyr->ammo[i] = 0;
+	    }
+	    plyr->ammo[am_clip] = deh_initial_bullets;
+
+	    if (plyr->readyweapon > wp_pistol)
+	    {
+		plyr->pendingweapon = wp_pistol;
+	    }
+
+	    plyr->message = "All weapons removed!";
+
+	    return true;
+	}
+
 	// [crispy] only give available weapons
 	if (!WeaponAvailable(w))
 	    return false;
@@ -1073,7 +1149,7 @@ ST_Responder (event_t* ev)
     }
     
     // 'clev' change-level cheat
-    if (!netgame && !menuactive && cht_CheckCheatSP(&cheat_clev, ev->data2)) // [crispy] restrict cheat usage
+    if (!netgame && cht_CheckCheat(&cheat_clev, ev->data2) && !menuactive) // [crispy] prevent only half the screen being updated
     {
       char		buf[3];
       int		epsd;
@@ -1186,11 +1262,35 @@ ST_Responder (event_t* ev)
       {
       // So be it.
       plyr->message = DEH_String(STSTR_CLEV);
-      G_DeferedInitNew(gameskill, epsd, map);
+      // [crisp] allow IDCLEV during demo playback and warp to the requested map
+      if (demoplayback)
+      {
+          if (map > gamemap)
+          {
+              crispy->demowarp = map;
+              nodrawers = true;
+              singletics = true;
+              return true;
+          }
+          else
+          {
+              return false;
+          }
       }
-
+      else
+      G_DeferedInitNew(gameskill, epsd, map);
       // [crispy] eat key press, i.e. don't change weapon upon level change
       return true;
+      }
+    }
+    // [crispy] eat up the first digit typed after a cheat expecting two parameters
+    else if (!netgame && cht_CheckCheat(&cheat_clev1, ev->data2) && !menuactive)
+    {
+	char buf[2];
+
+	cht_GetParam(&cheat_clev1, buf);
+
+	return isdigit(buf[0]);
     }
   }
   return false;
@@ -1221,6 +1321,8 @@ int ST_calcPainOffset(void)
 // the precedence of expressions is:
 //  dead > evil grin > turned head > straight ahead
 //
+// [crispy] fix status bar face hysteresis
+static int faceindex;
 void ST_updateFaceWidget(void)
 {
     int		i;
@@ -1232,7 +1334,6 @@ void ST_updateFaceWidget(void)
 
     // [crispy] fix status bar face hysteresis
     int		painoffset;
-    static int	faceindex;
     // [crispy] no evil grin or rampage face in god mode
     const boolean invul = (plyr->cheats & CF_GODMODE) || plyr->powers[pw_invulnerability];
 
@@ -1241,8 +1342,7 @@ void ST_updateFaceWidget(void)
     if (priority < 10)
     {
 	// dead
-	// [crispy] negative player health
-	if (plyr->health <= 0)
+	if (!plyr->health)
 	{
 	    priority = 9;
 	    painoffset = 0;
@@ -1456,14 +1556,14 @@ void ST_updateWidgets(void)
 		}
 #endif
 #if defined(CRISPY_KEYBLINK_IN_CLASSIC_HUD)
-		if (screenblocks < CRISPY_HUD && !(plyr->tryopen[i] & (KEYBLINKMASK-1)))
+		if (st_classicstatusbar && !(plyr->tryopen[i] & (KEYBLINKMASK-1)))
 		{
 			st_firsttime = true;
 		}
 #endif
 		plyr->tryopen[i]--;
 #if !defined(CRISPY_KEYBLINK_IN_CLASSIC_HUD)
-		if (screenblocks >= CRISPY_HUD)
+		if (st_crispyhud)
 #endif
 		{
 			keyboxes[i] = (plyr->tryopen[i] & KEYBLINKMASK) ? i + st_keyorskull[i] : -1;
@@ -1725,7 +1825,7 @@ static inline void ST_DrawGibbedPlayerSprites (void)
 		                 ((plyr->mo->flags & MF_TRANSLATION) >> (MF_TRANSSHIFT - 8));
 	}
 
-	V_DrawPatch(73, 186, patch);
+	V_DrawPatch(ST_HEALTHX - 17, 186, patch);
 	dp_translation = NULL;
 }
 
@@ -1745,35 +1845,31 @@ void ST_drawWidgets(boolean refresh)
     dp_translation = NULL;
 
     // [crispy] draw "special widgets" in the Crispy HUD
-    if (screenblocks >= CRISPY_HUD && (!automapactive || crispy->automapoverlay))
+    if (st_crispyhud)
     {
 	// [crispy] draw berserk pack instead of no ammo if appropriate
 	if (plyr->readyweapon == wp_fist && plyr->powers[pw_strength])
 	{
-		static patch_t *patch;
+		static int lump = -1;
+		patch_t *patch;
 
-		if (!patch)
+		if (lump == -1)
 		{
-			const int lump = W_CheckNumForName(DEH_String("PSTRA0"));
+			lump = W_CheckNumForName(DEH_String("PSTRA0"));
 
-			if (lump >= 0)
+			if (lump == -1)
 			{
-				patch = W_CacheLumpNum(lump, PU_STATIC);
-			}
-			// [crispy] should you ever play with the IDBEHOLDS cheat and the Shareware version...
-			else
-			{
-				patch = W_CacheLumpName("MEDIA0", PU_STATIC);
+				lump = W_CheckNumForName(DEH_String("MEDIA0"));
 			}
 		}
 
-		if (patch)
-		{
-			// [crispy] (23,179) is the center of the Ammo widget
-			V_DrawPatch(23 - SHORT(patch->width)/2 + SHORT(patch->leftoffset),
-			            179 - SHORT(patch->height)/2 + SHORT(patch->topoffset),
-			            patch);
-		}
+		patch = W_CacheLumpNum(lump, PU_CACHE);
+
+		// [crispy] (23,179) is the center of the Ammo widget
+		V_DrawPatch(ST_AMMOX - 21 - SHORT(patch->width)/2 + SHORT(patch->leftoffset),
+		            179 - SHORT(patch->height)/2 + SHORT(patch->topoffset),
+		            patch);
+
 	}
 
 	// [crispy] draw the gibbed death state frames in the Health widget
@@ -1794,33 +1890,36 @@ void ST_drawWidgets(boolean refresh)
     if (!gibbed)
     {
     dp_translation = ST_WidgetColor(hudcolor_health);
-    STlib_updatePercent(&w_health, refresh || screenblocks >= CRISPY_HUD);
+    // [crispy] negative player health
+    w_health.n.num = crispy->neghealth ? &plyr->neghealth : &plyr->health;
+    STlib_updatePercent(&w_health, refresh);
     }
     dp_translation = ST_WidgetColor(hudcolor_armor);
-    STlib_updatePercent(&w_armor, refresh || screenblocks >= CRISPY_HUD);
+    STlib_updatePercent(&w_armor, refresh);
     dp_translation = NULL;
 
-    if (screenblocks < CRISPY_HUD || (automapactive && !crispy->automapoverlay))
-    {
     STlib_updateBinIcon(&w_armsbg, refresh);
-    }
 
     // [crispy] show SSG availability in the Shotgun slot of the arms widget
     st_shotguns = plyr->weaponowned[wp_shotgun] | plyr->weaponowned[wp_supershotgun];
 
     for (i=0;i<6;i++)
-	STlib_updateMultIcon(&w_arms[i], refresh || screenblocks >= CRISPY_HUD);
+	STlib_updateMultIcon(&w_arms[i], refresh);
 
-    if (screenblocks < CRISPY_HUD || (automapactive && !crispy->automapoverlay))
+    // [crispy] draw the actual face widget background
+    if (st_crispyhud && screenblocks == CRISPY_HUD)
     {
-    STlib_updateMultIcon(&w_faces, refresh);
+	V_CopyRect(ST_FX + DELTAWIDTH, 1, st_backing_screen, SHORT(faceback->width), ST_HEIGHT - 1, ST_FX + DELTAWIDTH, ST_Y + 1);
     }
 
+    STlib_updateMultIcon(&w_faces, refresh);
+
     for (i=0;i<3;i++)
-	STlib_updateMultIcon(&w_keyboxes[i], refresh || screenblocks >= CRISPY_HUD);
+	STlib_updateMultIcon(&w_keyboxes[i], refresh);
 
     dp_translation = ST_WidgetColor(hudcolor_frags);
-    STlib_updateNum(&w_frags, refresh || screenblocks >= CRISPY_HUD);
+    STlib_updateNum(&w_frags, refresh);
+
     dp_translation = NULL;
 }
 
@@ -1830,7 +1929,7 @@ void ST_doRefresh(void)
     st_firsttime = false;
 
     // draw status bar background to off-screen buff
-    ST_refreshBackground();
+    ST_refreshBackground(false);
 
     // and refresh all widgets
     ST_drawWidgets(true);
@@ -1846,9 +1945,14 @@ void ST_diffDraw(void)
 void ST_Drawer (boolean fullscreen, boolean refresh)
 {
   
-    st_statusbaron = (!fullscreen) || (automapactive && !crispy->automapoverlay) || screenblocks >= CRISPY_HUD;
+    st_statusbaron = (!fullscreen) || (automapactive && !crispy->automapoverlay && !crispy->widescreen);
     // [crispy] immediately redraw status bar after help screens have been shown
     st_firsttime = st_firsttime || refresh || inhelpscreens;
+
+    // [crispy] distinguish classic status bar with background and player face from Crispy HUD
+    st_crispyhud = screenblocks >= CRISPY_HUD && (!automapactive || crispy->automapoverlay);
+    st_classicstatusbar = st_statusbaron && !st_crispyhud && !crispy->widescreen;
+    st_statusbarface = st_classicstatusbar || (st_crispyhud && screenblocks == CRISPY_HUD);
 
     if (crispy->cleanscreenshot == 2)
         return;
@@ -1857,7 +1961,7 @@ void ST_Drawer (boolean fullscreen, boolean refresh)
     ST_doPaletteStuff();
 
     // [crispy] translucent HUD
-    if (screenblocks > CRISPY_HUD && !(automapactive && !crispy->automapoverlay))
+    if (st_crispyhud && screenblocks > CRISPY_HUD + 1)
 	dp_translucent = true;
 
     // If just after ST_Start(), refresh all
@@ -1865,8 +1969,7 @@ void ST_Drawer (boolean fullscreen, boolean refresh)
     // Otherwise, update as little as possible
     else ST_diffDraw();
 
-    if (dp_translucent)
-	dp_translucent = false;
+    dp_translucent = false;
 }
 
 typedef void (*load_callback_t)(const char *lumpname, patch_t **variable);
@@ -1925,7 +2028,16 @@ static void ST_loadUnloadGraphics(load_callback_t callback)
     callback(namebuf, &faceback);
 
     // status bar background bits
-    callback(DEH_String("STBAR"), &sbar);
+    if (W_CheckNumForName("STBAR") >= 0)
+    {
+        callback(DEH_String("STBAR"), &sbar);
+        sbarr = NULL;
+    }
+    else
+    {
+        callback(DEH_String("STMBARL"), &sbar);
+        callback(DEH_String("STMBARR"), &sbarr);
+    }
 
     // face states
     facenum = 0;
@@ -2023,6 +2135,7 @@ void ST_initData(void)
     st_oldchat = st_chat = false;
     st_cursoron = false;
 
+    faceindex = 0; // [crispy] fix status bar face hysteresis across level changes
     st_faceindex = 0;
     st_palette = -1;
 
@@ -2044,6 +2157,9 @@ void ST_createWidgets(void)
 {
 
     int i;
+
+    // [crispy] re-calculate DELTAWIDTH
+    I_GetScreenDimensions();
 
     // ready weapon ammo
     STlib_initNum(&w_ready,
@@ -2072,7 +2188,7 @@ void ST_createWidgets(void)
 		      ST_ARMSBGY,
 		      armsbg,
 		      &st_notdeathmatch,
-		      &st_statusbaron);
+		      &st_classicstatusbar);
 
     // weapons owned
     for(i=0;i<6;i++)
@@ -2102,7 +2218,7 @@ void ST_createWidgets(void)
 		       ST_FACESY,
 		       faces,
 		       &st_faceindex,
-		       &st_statusbaron);
+		       &st_statusbarface);
 
     // armor percentage - should be colored later
     STlib_initPercent(&w_armor,
@@ -2259,21 +2375,21 @@ void ST_Init (void)
     }
 
     ST_loadData();
-    st_backing_screen = (pixel_t *) Z_Malloc((ST_WIDTH << 1) * (ST_HEIGHT << 1) * sizeof(*st_backing_screen), PU_STATIC, 0);
+    st_backing_screen = (pixel_t *) Z_Malloc(MAXWIDTH * (ST_HEIGHT << 1) * sizeof(*st_backing_screen), PU_STATIC, 0);
 }
 
 // [crispy] Demo Timer widget
 void ST_DrawDemoTimer (const int time)
 {
 	char buffer[16];
-	const int secs = time / TICRATE;
+	const int mins = time / (60 * TICRATE);
+	const float secs = (float)(time % (60 * TICRATE)) / TICRATE;
 	const int w = shortnum[0]->width;
 	int n, x;
 
-	n = M_snprintf(buffer, sizeof(buffer), "%02i %02i %02i",
-	               secs / 60, secs % 60, time % TICRATE);
+	n = M_snprintf(buffer, sizeof(buffer), "%02i %05.02f", mins, secs);
 
-	x = (viewwindowx >> crispy->hires) + (scaledviewwidth >> crispy->hires);
+	x = (viewwindowx >> crispy->hires) + (scaledviewwidth >> crispy->hires) - DELTAWIDTH;
 
 	// [crispy] draw the Demo Timer widget with gray numbers
 	dp_translation = cr[CR_GRAY];

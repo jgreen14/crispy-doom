@@ -245,21 +245,13 @@ boolean D_Display (void)
 
         // [crispy] Crispy HUD
         if (screenblocks >= CRISPY_HUD)
-            ST_Drawer(false, false);
+            ST_Drawer(false, true);
     }
 
     // [crispy] in automap overlay mode,
     // the HUD is drawn on top of everything else
     if (gamestate == GS_LEVEL && gametic && !(automapactive && crispy->automapoverlay))
 	HU_Drawer ();
-
-    // [crispy] demo progress bar
-    if (demoplayback && crispy->demobar)
-    {
-	extern void HU_DemoProgressBar (void);
-
-	HU_DemoProgressBar();
-    }
     
     // clean up border stuff
     if (gamestate != oldgamestate && gamestate != GS_LEVEL)
@@ -274,13 +266,6 @@ boolean D_Display (void)
     {
 	viewactivestate = false;        // view was not active
 	R_FillBackScreen ();    // draw the pattern into the back screen
-    }
-
-    // [crispy] in automap overlay mode,
-    // draw the automap beneath the bezel
-    if (automapactive && crispy->automapoverlay)
-    {
-	AM_Drawer ();
     }
 
     // see if the border needs to be updated to the screen
@@ -309,9 +294,10 @@ boolean D_Display (void)
     oldgamestate = wipegamestate = gamestate;
     
     // [crispy] in automap overlay mode,
-    // draw the HUD on top of everything else
+    // draw the automap and HUD on top of everything else
     if (automapactive && crispy->automapoverlay)
     {
+	AM_Drawer ();
 	HU_Drawer ();
 
 	// [crispy] force redraw of status bar and border
@@ -332,7 +318,7 @@ boolean D_Display (void)
 	    y = 4;
 	else
 	    y = (viewwindowy >> crispy->hires)+4;
-	V_DrawPatchShadow2((viewwindowx >> crispy->hires) + ((scaledviewwidth >> crispy->hires) - 68) / 2, y,
+	V_DrawPatchDirect((viewwindowx >> crispy->hires) + ((scaledviewwidth >> crispy->hires) - 68) / 2 - DELTAWIDTH, y,
                           W_CacheLumpName (DEH_String("M_PAUSE"), PU_CACHE));
     }
 
@@ -419,7 +405,10 @@ void D_BindVariables(void)
     }
 
     // [crispy] bind "crispness" config variables
+    M_BindIntVariable("crispy_automapoverlay",  &crispy->automapoverlay);
+    M_BindIntVariable("crispy_automaprotate",   &crispy->automaprotate);
     M_BindIntVariable("crispy_automapstats",    &crispy->automapstats);
+    M_BindIntVariable("crispy_bobfactor",       &crispy->bobfactor);
     M_BindIntVariable("crispy_brightmaps",      &crispy->brightmaps);
     M_BindIntVariable("crispy_centerweapon",    &crispy->centerweapon);
     M_BindIntVariable("crispy_coloredblood",    &crispy->coloredblood);
@@ -458,6 +447,7 @@ void D_BindVariables(void)
     M_BindIntVariable("crispy_uncapped",        &crispy->uncapped);
     M_BindIntVariable("crispy_vsync",           &crispy->vsync);
     M_BindIntVariable("crispy_weaponsquat",     &crispy->weaponsquat);
+    M_BindIntVariable("crispy_widescreen",      &crispy->widescreen);
 }
 
 //
@@ -536,7 +526,7 @@ void D_RunFrame()
 	// [crispy] post-rendering function pointer to apply config changes
 	// that affect rendering and that are better applied after the current
 	// frame has finished rendering
-	if (crispy->post_rendering_hook)
+	if (crispy->post_rendering_hook && !wipe)
 	{
 		crispy->post_rendering_hook();
 		crispy->post_rendering_hook = NULL;
@@ -567,6 +557,12 @@ void D_DoomLoop (void)
     I_GraphicsCheckCommandLine();
     I_SetGrabMouseCallback(D_GrabMouseCallback);
     I_InitGraphics();
+    // [crispy] re-init HUD widgets now just in case graphics were not initialized before
+    if (crispy->widescreen && aspect_ratio_correct)
+    {
+	extern void M_CrispyReinitHUDWidgets(void);
+	M_CrispyReinitHUDWidgets();
+    }
     EnableLoadingDisk();
 
     TryRunTics();
@@ -1079,6 +1075,7 @@ static struct
     const char *cmdline;
     GameVersion_t version;
 } gameversions[] = {
+    {"Doom 1.2",             "1.2",        exe_doom_1_2},
     {"Doom 1.666",           "1.666",      exe_doom_1_666},
     {"Doom 1.7/1.7a",        "1.7",        exe_doom_1_7},
     {"Doom 1.8",             "1.8",        exe_doom_1_8},
@@ -1106,9 +1103,9 @@ static void InitGameVersion(void)
     // @arg <version>
     // @category compat
     //
-    // Emulate a specific version of Doom.  Valid values are "1.666",
-    // "1.7", "1.8", "1.9", "ultimate", "final", "final2", "hacx" and
-    // "chex".
+    // Emulate a specific version of Doom.  Valid values are "1.2", 
+    // "1.666", "1.7", "1.8", "1.9", "ultimate", "final", "final2",
+    // "hacx" and "chex".
     //
 
     p = M_CheckParmWithArgs("-gameversion", 1);
@@ -1171,6 +1168,13 @@ static void InitGameVersion(void)
                     status = true;
                     switch (demoversion)
                     {
+                        case 0:
+                        case 1:
+                        case 2:
+                        case 3:
+                        case 4:
+                            gameversion = exe_doom_1_2;
+                            break;
                         case 106:
                             gameversion = exe_doom_1_666;
                             break;
@@ -1208,6 +1212,12 @@ static void InitGameVersion(void)
 
             gameversion = exe_final;
         }
+    }
+
+    // Deathmatch 2.0 did not exist until Doom v1.4
+    if (gameversion <= exe_doom_1_2 && deathmatch == 2)
+    {
+        deathmatch = 1;
     }
     
     // The original exe does not support retail - 4th episode not supported
@@ -1333,12 +1343,19 @@ static void LoadSigilWad(void)
         {"CREDIT",   "SIGCREDI"},
         {"HELP1",    "SIGHELP1"},
         {"TITLEPIC", "SIGTITLE"},
+        {"DEHACKED", "SIG_DEH"},
         {"DEMO1",    "SIGDEMO1"},
         {"DEMO2",    "SIGDEMO2"},
         {"DEMO3",    "SIGDEMO3"},
         {"DEMO4",    "SIGDEMO4"},
         {"D_INTER",  "D_SIGINT"},
         {"D_INTRO",  "D_SIGTIT"},
+    };
+
+    const char *const texture_files[] = {
+        "PNAMES",
+        "TEXTURE1",
+        "TEXTURE2",
     };
 
     // [crispy] don't load SIGIL.wad if another PWAD already provides E5M1
@@ -1350,27 +1367,56 @@ static void LoadSigilWad(void)
 
     // [crispy] don't load SIGIL.wad if SIGIL_COMPAT.wad is already loaded
     i = W_CheckNumForName("E3M1");
-    if (i != -1 && !strcasecmp(W_WadNameForLump(lumpinfo[i]), "SIGIL_COMPAT.wad"))
+    if (i != -1 && !strncasecmp(W_WadNameForLump(lumpinfo[i]), "SIGIL_COMPAT", 12))
     {
         return;
     }
 
+    // [crispy] don't load SIGIL.wad if another PWAD already modifies the texture files
+    for (i = 0; i < arrlen(texture_files); i++)
+    {
+        int j;
+
+        j = W_CheckNumForName(texture_files[i]);
+
+        if (j != -1 && !W_IsIWADLump(lumpinfo[j]))
+        {
+            return;
+        }
+    }
+
     if (gameversion == exe_ultimate)
     {
+        const char *const sigil_wads[] = {
+            "SIGIL_v1_21.wad",
+            "SIGIL_v1_2.wad",
+            "SIGIL.wad"
+        };
         char *sigil_wad = NULL, *sigil_shreds = NULL;
         char *dirname;
 
         dirname = M_DirName(iwadfile);
-        sigil_wad = M_StringJoin(dirname, DIR_SEPARATOR_S, "SIGIL.wad", NULL);
         sigil_shreds = M_StringJoin(dirname, DIR_SEPARATOR_S, "SIGIL_SHREDS.wad", NULL);
-        free(dirname);
 
         // [crispy] load SIGIL.WAD
-        if (!M_FileExists(sigil_wad))
+        for (i = 0; i < arrlen(sigil_wads); i++)
         {
+            sigil_wad = M_StringJoin(dirname, DIR_SEPARATOR_S, sigil_wads[i], NULL);
+
+            if (M_FileExists(sigil_wad))
+            {
+                break;
+            }
+
             free(sigil_wad);
-            sigil_wad = D_FindWADByName("SIGIL.wad");
+            sigil_wad = D_FindWADByName(sigil_wads[i]);
+
+            if (sigil_wad)
+            {
+                break;
+            }
         }
+        free(dirname);
 
         if (sigil_wad == NULL)
         {
@@ -1378,6 +1424,7 @@ static void LoadSigilWad(void)
             return;
         }
 
+        printf(" [expansion]");
         D_AddFile(sigil_wad);
         free(sigil_wad);
 
@@ -1390,18 +1437,25 @@ static void LoadSigilWad(void)
 
         if (sigil_shreds != NULL)
         {
+            printf(" [expansion]");
             D_AddFile(sigil_shreds);
             free(sigil_shreds);
         }
 
         // [crispy] rename intrusive SIGIL_SHREDS.wad music lumps out of the way
-        for (i = 7; i < arrlen(sigil_lumps); i++)
+        for (i = 0; i < arrlen(sigil_lumps); i++)
         {
             int j;
 
+            // [crispy] skip non-music lumps
+            if (strncasecmp(sigil_lumps[i].name, "D_", 2))
+            {
+                continue;
+            }
+
             j = W_CheckNumForName(sigil_lumps[i].name);
 
-            if (j != -1 && !strcasecmp(W_WadNameForLump(lumpinfo[j]), "SIGIL_SHREDS.wad"))
+            if (j != -1 && !strncasecmp(W_WadNameForLump(lumpinfo[j]), "SIGIL_SHREDS", 12))
             {
                 memcpy(lumpinfo[j]->name, sigil_lumps[i].new_name, 8);
             }
@@ -1414,7 +1468,7 @@ static void LoadSigilWad(void)
 
             j = W_CheckNumForName(sigil_lumps[i].name);
 
-            if (j != -1 && !strcasecmp(W_WadNameForLump(lumpinfo[j]), "SIGIL.wad"))
+            if (j != -1 && !strncasecmp(W_WadNameForLump(lumpinfo[j]), "SIGIL", 5))
             {
                 memcpy(lumpinfo[j]->name, sigil_lumps[i].new_name, 8);
             }
@@ -1476,6 +1530,7 @@ static void LoadNerveWad(void)
             return;
         }
 
+        printf(" [expansion]");
         D_AddFile(nervewadfile);
 
         // [crispy] rename level name patch lumps out of the way
@@ -1728,7 +1783,7 @@ void D_DoomMain (void)
     M_LoadDefaults();
 
     // Save configuration at exit.
-    I_AtExit(M_SaveDefaults, false);
+    I_AtExit(M_SaveDefaults, true); // [crispy] always save configuration at exit
 
     // Find main IWAD file and load it.
     iwadfile = D_FindIWAD(IWAD_MASK_DOOM, &gamemission);
@@ -1836,10 +1891,13 @@ void D_DoomMain (void)
 
         // common auto-loaded files for all Doom flavors
 
-        autoload_dir = M_GetAutoloadDir("doom-all");
-        DEH_AutoLoadPatches(autoload_dir);
-        W_AutoLoadWADs(autoload_dir);
-        free(autoload_dir);
+        if (gamemission < pack_chex)
+        {
+            autoload_dir = M_GetAutoloadDir("doom-all");
+            DEH_AutoLoadPatches(autoload_dir);
+            W_AutoLoadWADs(autoload_dir);
+            free(autoload_dir);
+        }
 
         // auto-loaded files per IWAD
 
@@ -1893,6 +1951,42 @@ void D_DoomMain (void)
 	else
 	{
 	    I_Error("W_MergeDump: The '-mergedump' parameter requires an argument.");
+	}
+    }
+
+    //!
+    // @arg <file>
+    // @category mod
+    //
+    // [crispy] experimental feature: dump lump data into a new LMP file <file>
+    //
+
+    p = M_CheckParm("-lumpdump");
+
+    if (p)
+    {
+	p = M_CheckParmWithArgs("-lumpdump", 1);
+
+	if (p)
+	{
+	    int dumped;
+
+	    M_StringCopy(file, myargv[p+1], sizeof(file));
+
+	    dumped = W_LumpDump(file);
+
+	    if (dumped < 0)
+	    {
+		I_Error("W_LumpDump: Failed to write lump '%s'.", file);
+	    }
+	    else
+	    {
+		I_Error("W_LumpDump: Dumped lump into file '%s.lmp'.", file);
+	    }
+	}
+	else
+	{
+	    I_Error("W_LumpDump: The '-lumpdump' parameter requires an argument.");
 	}
     }
 
@@ -1964,7 +2058,7 @@ void D_DoomMain (void)
     W_GenerateHashTable();
 
     // [crispy] allow overriding of special-casing
-    if (!M_ParmExists("-nodeh"))
+    if (!M_ParmExists("-noautoload") && gamemode != shareware)
     {
 	LoadMasterlevelsWad();
 	LoadNerveWad();
@@ -2042,18 +2136,6 @@ void D_DoomMain (void)
 
     I_PrintStartupBanner(gamedescription);
     PrintDehackedBanners();
-
-    // Freedoom's IWADs are Boom-compatible, which means they usually
-    // don't work in Vanilla (though FreeDM is okay). Show a warning
-    // message and give a link to the website.
-    if (gamevariant == freedoom)
-    {
-        printf(" WARNING: You are playing using one of the Freedoom IWAD\n"
-               " files, which might not work in this port. See this page\n"
-               " for more information on how to play using Freedoom:\n"
-               "   https://www.chocolate-doom.org/wiki/index.php/Freedoom\n");
-        I_PrintDivider();
-    }
 
     DEH_printf("I_Init: Setting up machine state.\n");
     I_CheckIsScreensaver();
@@ -2238,13 +2320,14 @@ void D_DoomMain (void)
     if (p > 0)
     {
         crispy->fliplevels = !crispy->fliplevels;
+        crispy->flipweapons = !crispy->flipweapons;
     }
 
     p = M_CheckParm("-flipweapons");
 
     if (p > 0)
     {
-        crispy->flipweapons = true;
+        crispy->flipweapons = !crispy->flipweapons;
     }
 
     // Check for load game parameter

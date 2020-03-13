@@ -1,5 +1,6 @@
 //
 // Copyright(C) 2005-2014 Simon Howard
+// Copyright(C) 2014-2019 Fabian Greffrath
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -11,23 +12,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
-// DESCRIPTION:
-//     Common code to parse command line, identifying WAD files to load.
+//
+// Parses [PARS] sections in BEX files
 //
 
-#ifndef W_MAIN_H
-#define W_MAIN_H
+#ifndef DEH_BEXPARS_H
+#define DEH_BEXPARS_H
 
-#include "d_mode.h"
+extern int bex_pars[6][10];
+extern int bex_cpars[32];
 
-boolean W_ParseCommandLine(void);
-void W_CheckCorrectIWAD(GameMission_t mission);
-
-int W_MergeDump (const char *file);
-int W_LumpDump (const char *lumpname);
-
-// Autoload all .wad files from the given directory:
-void W_AutoLoadWADs(const char *path);
-
-#endif /* #ifndef W_MAIN_H */
-
+#endif /* #ifndef DEH_BEXPARS_H */

@@ -36,7 +36,10 @@
 typedef struct
 {
 	// [crispy] "crispness" config variables
+	int automapoverlay;
+	int automaprotate;
 	int automapstats;
+	int bobfactor;
 	int brightmaps;
 	int centerweapon;
 	int coloredblood;
@@ -75,6 +78,7 @@ typedef struct
 	int uncapped;
 	int vsync;
 	int weaponsquat;
+	int widescreen;
 
 	// [crispy] in-game switches and variables
 	int screenshotmsg;
@@ -82,7 +86,6 @@ typedef struct
 	int demowarp;
 	int fps;
 
-	boolean automapoverlay;
 	boolean flashinghom;
 	boolean fliplevels;
 	boolean flipweapons;
@@ -114,10 +117,10 @@ enum
 
 enum
 {
-    ASPECTRATIO_OFF,
-    ASPECTRATIO_4_3,
-    ASPECTRATIO_16_10,
-    NUM_ASPECTRATIOS,
+    BOBFACTOR_FULL,
+    BOBFACTOR_75,
+    BOBFACTOR_OFF,
+    NUM_BOBFACTORS,
 };
 
 enum
@@ -132,10 +135,8 @@ enum
 enum
 {
     CENTERWEAPON_OFF,
-    CENTERWEAPON_HOR,
-    CENTERWEAPON_HORVER,
+    CENTERWEAPON_CENTER,
     CENTERWEAPON_BOB,
-    CENTERWEAPON_BOB2,
     NUM_CENTERWEAPON,
 };
 
@@ -205,6 +206,14 @@ enum
     SECRETMESSAGE_ON,
     SECRETMESSAGE_COUNT,
     NUM_SECRETMESSAGE
+};
+
+enum
+{
+    WIDESCREEN_OFF,
+    WIDESCREEN_WIDE,
+    WIDESCREEN_COMPACT,
+    NUM_WIDESCREEN
 };
 
 enum
