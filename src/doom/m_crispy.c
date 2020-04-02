@@ -128,13 +128,6 @@ multiitem_t multiitem_sndchannels[4] =
     {32, "32"},
 };
 
-multiitem_t multiitem_widescreen[NUM_WIDESCREEN] =
-{
-    {WIDESCREEN_OFF, "off"},
-    {WIDESCREEN_WIDE, "on, wide HUD"},
-    {WIDESCREEN_COMPACT, "on, compact HUD"},
-};
-
 multiitem_t multiitem_widgets[NUM_WIDGETS] =
 {
     {WIDGETS_OFF, "never"},
@@ -142,16 +135,12 @@ multiitem_t multiitem_widgets[NUM_WIDGETS] =
     {WIDGETS_ALWAYS, "always"},
 };
 
-extern void AM_ReInit (void);
+extern void AM_LevelInit (boolean reinit);
 extern void EnableLoadingDisk (void);
 extern void P_SegLengths (boolean contrast_only);
 extern void R_ExecuteSetViewSize (void);
 extern void R_InitLightTables (void);
 extern void I_ReInitGraphics (int reinit);
-extern void ST_createWidgets(void);
-extern void HU_Start(void);
-extern void M_SizeDisplay(int choice);
-
 
 void M_CrispyToggleAutomapstats(int choice)
 {
@@ -355,7 +344,7 @@ static void M_CrispyToggleHiresHook (void)
     // [crispy] re-calculate disk icon coordinates
     EnableLoadingDisk();
     // [crispy] re-calculate automap coordinates
-    AM_ReInit();
+    AM_LevelInit(true);
 }
 
 void M_CrispyToggleHires(int choice)
@@ -531,26 +520,12 @@ void M_CrispyToggleWeaponSquat(int choice)
     crispy->weaponsquat = !crispy->weaponsquat;
 }
 
-void M_CrispyReinitHUDWidgets (void)
-{
-    if (gamestate == GS_LEVEL && gamemap > 0)
-    {
-	// [crispy] re-arrange status bar widgets
-	ST_createWidgets();
-	// [crispy] re-arrange heads-up widgets
-	HU_Start();
-    }
-}
-
 static void M_CrispyToggleWidescreenHook (void)
 {
-    crispy->widescreen = (crispy->widescreen + 1) % NUM_WIDESCREEN;
+    crispy->widescreen = !crispy->widescreen;
 
     // [crispy] no need to re-init when switching from wide to compact
-    if (crispy->widescreen == 1 || crispy->widescreen == 0)
     {
-	// [crispy] re-initialize screenSize_min
-	M_SizeDisplay(-1);
 	// [crispy] re-initialize framebuffers, textures and renderer
 	I_ReInitGraphics(REINIT_FRAMEBUFFERS | REINIT_TEXTURES | REINIT_ASPECTRATIO);
 	// [crispy] re-calculate framebuffer coordinates
@@ -560,10 +535,8 @@ static void M_CrispyToggleWidescreenHook (void)
 	// [crispy] re-calculate disk icon coordinates
 	EnableLoadingDisk();
 	// [crispy] re-calculate automap coordinates
-	AM_ReInit();
+	AM_LevelInit(true);
     }
-
-    M_CrispyReinitHUDWidgets();
 }
 
 void M_CrispyToggleWidescreen(int choice)
