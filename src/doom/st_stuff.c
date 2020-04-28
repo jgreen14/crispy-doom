@@ -1185,6 +1185,9 @@ ST_Responder (event_t* ev)
       
       if (gamemode == commercial)
       {
+	if (gamemission == pack_master)
+	    epsd = 3;
+	else
 	if (gamemission == pack_nerve)
 	    epsd = 2;
 	else
@@ -1633,12 +1636,6 @@ static int st_widescreendelta;
 
 void ST_Ticker (void)
 {
-    // [crispy] re-calculate widget coordinates on demand
-    if (st_widescreendelta != ST_WIDESCREENDELTA)
-    {
-        void ST_createWidgets (void);
-        ST_createWidgets();
-    }
 
     st_clock++;
     st_randomnumber = M_Random();
@@ -1987,6 +1984,13 @@ void ST_Drawer (boolean fullscreen, boolean refresh)
     st_crispyhud = screenblocks >= CRISPY_HUD && (!automapactive || crispy->automapoverlay);
     st_classicstatusbar = st_statusbaron && !st_crispyhud;
     st_statusbarface = st_classicstatusbar || (st_crispyhud && (screenblocks % 3 == 0));
+
+    // [crispy] re-calculate widget coordinates on demand
+    if (st_widescreendelta != ST_WIDESCREENDELTA)
+    {
+        void ST_createWidgets (void);
+        ST_createWidgets();
+    }
 
     if (crispy->cleanscreenshot == 2)
         return;

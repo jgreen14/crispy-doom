@@ -412,7 +412,7 @@ const char *mapnames_commercial[] =
     MHUSTR_21
 };
 
-static void CrispyReplaceColor (char *str, const int cr, const char *col)
+static void CrispyReplaceColor (const char *str, const int cr, const char *col)
 {
     char *str_replace, col_replace[16];
 
@@ -728,7 +728,10 @@ void HU_Start(void)
 
     // [crispy] explicitely display (episode and) map if the
     // map is from a PWAD or if the map title string has been dehacked
-    if (DEH_HasStringReplacement(s) || (!W_IsIWADLump(maplumpinfo) && (!nervewadfile || gamemission != pack_nerve)))
+    if (DEH_HasStringReplacement(s) ||
+        (!W_IsIWADLump(maplumpinfo) &&
+        !(crispy->havenerve && gamemission == pack_nerve) &&
+        !(crispy->havemaster && gamemission == pack_master)))
     {
 	char *m;
 
@@ -833,6 +836,12 @@ void HU_Drawer(void)
 	return;
     }
 
+    // [crispy] re-calculate widget coordinates on demand
+    if (hu_widescreendelta != WIDESCREENDELTA)
+    {
+        HU_Start();
+    }
+
     // [crispy] translucent messages for translucent HUD
     if (screenblocks >= CRISPY_HUD && (screenblocks % 3 == 2) && (!automapactive || crispy->automapoverlay))
 	dp_translucent = true;
@@ -934,12 +943,6 @@ void HU_Ticker(void)
     int i, rc;
     char c;
     char str[32], *s;
-
-    // [crispy] re-calculate widget coordinates on demand
-    if (hu_widescreendelta != WIDESCREENDELTA)
-    {
-        HU_Start();
-    }
 
     // tick down message counter if message is up
     if (message_counter && !--message_counter)
